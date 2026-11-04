@@ -4,6 +4,27 @@ enum AppSettings {
     private static let whisperModelKey = "mirza.whisperModelSize"
     private static let audioSourceKey = "mirza.audioSource"
     private static let useGPUKey = "mirza.useGPU"
+    private static let geminiCustomHostKey = "mirza.geminiCustomHost"
+    private static let selectedLanguageKey = "mirza.selectedLanguage"
+
+    static var selectedLanguage: String? {
+        get {
+            let val = UserDefaults.standard.string(forKey: selectedLanguageKey) ?? "fa"
+            return val == "auto" ? nil : val
+        }
+        set {
+            UserDefaults.standard.set(newValue ?? "auto", forKey: selectedLanguageKey)
+        }
+    }
+
+    static var geminiCustomHost: String {
+        get {
+            UserDefaults.standard.string(forKey: geminiCustomHostKey) ?? ""
+        }
+        set {
+            UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: geminiCustomHostKey)
+        }
+    }
 
     static var whisperModelSize: WhisperModelSize {
         get {

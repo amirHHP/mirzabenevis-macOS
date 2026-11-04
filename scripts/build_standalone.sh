@@ -61,9 +61,15 @@ else
     echo "  ⚠️ No icon source found, skipping"
 fi
 
-# ─── Step 3: Create whisper modulemap ────────────────────────────────────────
+# ─── Step 3: Create whisper modulemap and compile whisper if needed ──────────
 
-echo "=== 3/7 Creating whisper modulemap ==="
+echo "=== 3/7 Preparing whisper.cpp ==="
+if [ ! -f "build_whisper/src/libwhisper.a" ]; then
+    echo "  Building whisper.cpp static libraries with cmake..."
+    cmake -B build_whisper -S vendor/whisper.cpp -DGGML_METAL=ON -DWHISPER_BUILD_EXAMPLES=OFF -DWHISPER_BUILD_TESTS=OFF
+    cmake --build build_whisper --config Release -j
+fi
+
 cp vendor/whisper.cpp/include/whisper.h "$MODULES_DIR/"
 cp vendor/whisper.cpp/ggml/include/ggml.h "$MODULES_DIR/"
 cp vendor/whisper.cpp/ggml/include/ggml-alloc.h "$MODULES_DIR/"
@@ -86,7 +92,12 @@ echo "=== 4/7 Compiling Swift Source Files ==="
 SWIFT_FILES=$(find MacApp/MirzaBenevis -name "*.swift")
 
 SDK_PATH=""
-for sdk in "/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk" "/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk" "/Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk"; do
+for sdk in \
+  "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk" \
+  "/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk" \
+  "/Library/Developer/CommandLineTools/SDKs/MacOSX15.4.sdk" \
+  "/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk" \
+  "/Library/Developer/CommandLineTools/SDKs/MacOSX14.sdk"; do
   if [ -d "$sdk" ]; then
     SDK_PATH="$sdk"
     break
@@ -100,8 +111,11 @@ fi
 echo "  SDK: ${SDK_PATH}"
 echo "  Compiling..."
 
+mkdir -p /tmp/clang_module_cache
+
 swiftc -sdk "$SDK_PATH" \
   -I "$MODULES_DIR" \
+  -module-cache-path /tmp/clang_module_cache \
   -O \
   -target arm64-apple-macosx14.0 \
   -o "${MACOS_DIR}/${APP_NAME}" \
@@ -112,7 +126,7 @@ swiftc -sdk "$SDK_PATH" \
   -L build_whisper/ggml/src/ggml-blas \
   -lwhisper -lggml -lggml-base -lggml-cpu -lggml-metal -lggml-blas \
   -lc++ \
-  -framework Accelerate -framework Metal -framework Foundation -framework AVFoundation -framework ScreenCaptureKit -framework SwiftUI -framework Combine -framework Security
+  -framework Accelerate -framework Metal -framework Foundation -framework AVFoundation -framework ScreenCaptureKit -framework SwiftUI -framework Combine -framework Security -framework EventKit
 
 echo "  ✅ Compilation successful"
 
@@ -150,15 +164,17 @@ SIGNING_IDENTITY="-"
 if security find-identity -p codesigning | grep -q "MirzaBenevisLocalSign"; then
   SIGNING_IDENTITY="MirzaBenevisLocalSign"
   echo "  Using local code signing identity: ${SIGNING_IDENTITY}"
+  codesign --force --deep \
+    --entitlements MacApp/MirzaBenevis/MirzaBenevis.entitlements \
+    --sign "$SIGNING_IDENTITY" \
+    "$APP_BUNDLE"
 else
-  echo "  ⚠️ MirzaBenevisLocalSign identity not found or not trusted. Falling back to ad-hoc signing."
+  echo "  ⚠️ MirzaBenevisLocalSign identity not found. Using ad-hoc signing (without hardened runtime to avoid AMFI SIGKILL)."
+  codesign --force --deep \
+    --entitlements MacApp/MirzaBenevis/MirzaBenevis.entitlements \
+    --sign "-" \
+    "$APP_BUNDLE"
 fi
-
-codesign --force \
-  --options runtime \
-  --entitlements MacApp/MirzaBenevis/MirzaBenevis.entitlements \
-  --sign "$SIGNING_IDENTITY" \
-  "$APP_BUNDLE"
 
 if [ "$SIGNING_IDENTITY" = "-" ]; then
   echo "  ✅ Signed (ad-hoc)"
@@ -166,107 +182,37 @@ else
   echo "  ✅ Signed with ${SIGNING_IDENTITY}"
 fi
 
-# ─── Step 7: Create DMG Installer ────────────────────────────────────────────
+# ─── Step 7: Create DMG Installer (Optional) ─────────────────────────────────
 
 echo "=== 7/7 Creating DMG Installer ==="
 DMG_TEMP="${BUILD_DIR}/dmg_staging"
 DMG_FILE="${BUILD_DIR}/${APP_NAME}.dmg"
-DMG_BG="installer/dmg_background.png"
 
 rm -rf "$DMG_TEMP"
 mkdir -p "$DMG_TEMP"
-
-# Copy the app
 cp -R "$APP_BUNDLE" "$DMG_TEMP/"
-
-# Create Applications symlink
 ln -s /Applications "$DMG_TEMP/Applications"
-
-# Remove old DMG if exists
 rm -f "$DMG_FILE"
 
-# Create read-write DMG first (so we can style it)
-DMG_RW="${BUILD_DIR}/${APP_NAME}_rw.dmg"
-hdiutil create \
-  -volname "${APP_DISPLAY_NAME}" \
-  -srcfolder "$DMG_TEMP" \
-  -format UDRW \
-  -fs HFS+ \
-  "$DMG_RW" > /dev/null 2>&1
-
-# Mount the DMG and apply styling
-MOUNT_POINT=$(hdiutil attach -readwrite -noverify -noautoopen "$DMG_RW" 2>/dev/null | grep -o '/Volumes/.*' | tail -1 || echo "")
-VOLUME_NAME=$(basename "$MOUNT_POINT")
-
-if [ -n "$MOUNT_POINT" ] && [ -d "$MOUNT_POINT" ]; then
-    echo "  Styling DMG window at: ${MOUNT_POINT} (Volume: ${VOLUME_NAME})"
-
-    # Copy background image
-    mkdir -p "${MOUNT_POINT}/.background"
-    if [ -f "$DMG_BG" ]; then
-        cp "$DMG_BG" "${MOUNT_POINT}/.background/background.png"
-    fi
-
-    # Set volume icon
-    if [ -f "installer/AppIcon.icns" ]; then
-        cp "installer/AppIcon.icns" "${MOUNT_POINT}/.VolumeIcon.icns"
-        SetFile -c icnC "${MOUNT_POINT}/.VolumeIcon.icns" 2>/dev/null || true
-        SetFile -a C "${MOUNT_POINT}" 2>/dev/null || true
-    fi
-
-    # Use AppleScript to set DMG window appearance
-    osascript << APPLESCRIPT
-tell application "Finder"
-    tell disk "${VOLUME_NAME}"
-        open
-        set current view of container window to icon view
-        set toolbar visible of container window to false
-        set statusbar visible of container window to false
-        set bounds of container window to {100, 100, 760, 540}
-        set theViewOptions to icon view options of container window
-        set arrangement of theViewOptions to not arranged
-        set icon size of theViewOptions to 100
-        try
-            set background picture of theViewOptions to file ".background:background.png"
-        end try
-        set position of item "${APP_NAME}.app" of container window to {160, 200}
-        set position of item "Applications" of container window to {500, 200}
-        close
-        open
-        update without registering applications
-        delay 1
-        close
-    end tell
-end tell
-APPLESCRIPT
-
-    # Unmount
-    sync
-    hdiutil detach "$MOUNT_POINT" > /dev/null 2>&1 || true
+if hdiutil create -volname "${APP_DISPLAY_NAME}" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_FILE" > /dev/null 2>&1; then
+    echo "  ✅ DMG created at: ${DMG_FILE}"
 else
-    echo "  ⚠️ Could not style DMG (mount point not found)"
+    echo "  ℹ️ DMG creation skipped or not permitted in current sandbox. You can launch or copy ${APP_BUNDLE} directly."
 fi
-
-# Convert to compressed DMG
-hdiutil convert "$DMG_RW" -format UDZO -imagekey zlib-level=9 -o "$DMG_FILE" > /dev/null 2>&1
-rm -f "$DMG_RW"
-
-# Clean up
 rm -rf "$DMG_TEMP"
-
-echo "  ✅ DMG created"
 
 # ─── Done ────────────────────────────────────────────────────────────────────
 
-DMG_SIZE=$(du -h "$DMG_FILE" | cut -f1)
 APP_SIZE=$(du -sh "$APP_BUNDLE" | cut -f1)
 
 echo ""
 echo "╔══════════════════════════════════════════╗"
 echo "║          ✅ Build Successful!             ║"
 echo "╠══════════════════════════════════════════╣"
-echo "║  App:  ${APP_BUNDLE}"
-echo "║  DMG:  ${DMG_FILE} (${DMG_SIZE})"
-echo "║  Size: ${APP_SIZE}"
+echo "║  App:  ${APP_BUNDLE} (${APP_SIZE})"
+if [ -f "$DMG_FILE" ]; then
+    DMG_SIZE=$(du -h "$DMG_FILE" | cut -f1)
+    echo "║  DMG:  ${DMG_FILE} (${DMG_SIZE})"
+fi
 echo "╚══════════════════════════════════════════╝"
 echo ""

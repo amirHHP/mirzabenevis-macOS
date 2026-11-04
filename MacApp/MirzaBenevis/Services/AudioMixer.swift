@@ -55,9 +55,8 @@ final class AudioMixer {
 
     /// Mix and emit when both sources have enough data (lowest latency path).
     private func mixIfBothReady() {
+        var toEmit: [Data] = []
         lock.lock()
-        defer { lock.unlock() }
-
         while micBuffer.count >= emitChunkSize && systemBuffer.count >= emitChunkSize {
             let micChunk = Data(micBuffer.prefix(emitChunkSize))
             let sysChunk = Data(systemBuffer.prefix(emitChunkSize))
@@ -65,36 +64,45 @@ final class AudioMixer {
             systemBuffer.removeFirst(emitChunkSize)
 
             let mixed = PCMConverter.mixPCM16(micChunk, sysChunk)
-            onMixedData?(mixed)
+            toEmit.append(mixed)
+        }
+        lock.unlock()
+
+        for chunk in toEmit {
+            onMixedData?(chunk)
         }
     }
 
     /// Timer-based flush: if only one source has data after the grace period,
     /// pass it through instead of waiting forever for the other source.
     private func timerFlush() {
+        var toEmit: [Data] = []
         lock.lock()
-        defer { lock.unlock() }
-
         // First, mix anything where both sources have data
         while micBuffer.count >= emitChunkSize && systemBuffer.count >= emitChunkSize {
             let micChunk = Data(micBuffer.prefix(emitChunkSize))
             let sysChunk = Data(systemBuffer.prefix(emitChunkSize))
             micBuffer.removeFirst(emitChunkSize)
             systemBuffer.removeFirst(emitChunkSize)
-            onMixedData?(PCMConverter.mixPCM16(micChunk, sysChunk))
+            toEmit.append(PCMConverter.mixPCM16(micChunk, sysChunk))
         }
 
         // Then, flush any remaining mic data (system might be silent)
         while micBuffer.count >= emitChunkSize {
             let chunk = Data(micBuffer.prefix(emitChunkSize))
             micBuffer.removeFirst(emitChunkSize)
-            onMixedData?(chunk)
+            toEmit.append(chunk)
         }
 
         // Flush any remaining system data (mic might be muted)
         while systemBuffer.count >= emitChunkSize {
             let chunk = Data(systemBuffer.prefix(emitChunkSize))
             systemBuffer.removeFirst(emitChunkSize)
+            toEmit.append(chunk)
+        }
+        lock.unlock()
+
+        for chunk in toEmit {
             onMixedData?(chunk)
         }
     }

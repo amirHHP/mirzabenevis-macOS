@@ -43,19 +43,42 @@ actor WhisperContext {
     func transcribe(
         samples: [Float],
         language: String? = "fa",
-        offsetMs: Int32 = 0
+        offsetMs: Int32 = 0,
+        initialPrompt: String? = nil
     ) throws -> WhisperTranscriptionResult {
-        if let language {
-            return try language.withCString { langPtr in
-                try runTranscription(samples: samples, language: langPtr, detectLanguage: false, offsetMs: offsetMs)
-            }
+        let runner: (UnsafePointer<CChar>?, UnsafePointer<CChar>?) throws -> WhisperTranscriptionResult = { langPtr, promptPtr in
+            try self.runTranscription(
+                samples: samples,
+                language: langPtr,
+                initialPrompt: promptPtr,
+                detectLanguage: language == nil,
+                offsetMs: offsetMs
+            )
         }
-        return try runTranscription(samples: samples, language: nil, detectLanguage: true, offsetMs: offsetMs)
+
+        if let language, let initialPrompt {
+            return try language.withCString { langPtr in
+                try initialPrompt.withCString { promptPtr in
+                    try runner(langPtr, promptPtr)
+                }
+            }
+        } else if let language {
+            return try language.withCString { langPtr in
+                try runner(langPtr, nil)
+            }
+        } else if let initialPrompt {
+            return try initialPrompt.withCString { promptPtr in
+                try runner(nil, promptPtr)
+            }
+        } else {
+            return try runner(nil, nil)
+        }
     }
 
     private func runTranscription(
         samples: [Float],
         language: UnsafePointer<CChar>?,
+        initialPrompt: UnsafePointer<CChar>?,
         detectLanguage: Bool,
         offsetMs: Int32
     ) throws -> WhisperTranscriptionResult {
@@ -69,10 +92,11 @@ actor WhisperContext {
         params.token_timestamps = true
         params.translate = false
         params.language = language
+        params.initial_prompt = initialPrompt
         params.detect_language = detectLanguage
         params.n_threads = maxThreads
-        params.offset_ms = offsetMs
-        params.no_context = false
+        params.offset_ms = 0
+        params.no_context = true
         params.single_segment = false
         params.max_len = 0
 
@@ -109,8 +133,8 @@ actor WhisperContext {
                 words.append(
                     WhisperWordResult(
                         text: tokenText,
-                        start: Double(tokenData.t0) / 1000.0 + Double(offsetMs) / 1000.0,
-                        end: Double(tokenData.t1) / 1000.0 + Double(offsetMs) / 1000.0,
+                        start: Double(tokenData.t0) * 0.01 + Double(offsetMs) / 1000.0,
+                        end: Double(tokenData.t1) * 0.01 + Double(offsetMs) / 1000.0,
                         confidence: Double(tokenData.p)
                     )
                 )

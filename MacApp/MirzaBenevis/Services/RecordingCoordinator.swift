@@ -4,7 +4,7 @@ import Foundation
 final class RecordingCoordinator: ObservableObject {
     @Published var statusMessage = "آماده"
     @Published var isActive = false
-    @Published var selectedLanguage: String? = "fa"
+    @Published var selectedLanguage: String? = AppSettings.selectedLanguage
     @Published var audioSource: AudioSourceMode = AppSettings.audioSource
 
     let micCapture = AudioCaptureService()
@@ -13,8 +13,22 @@ final class RecordingCoordinator: ObservableObject {
     let transcriptStore: TranscriptStore
 
     private let audioMixer = AudioMixer()
+    private let vad = VADDetector()
+
     private var pcmBuffer = Data()
-    private let chunkBytes = 16000 * 2 * 3 // 3 seconds at 16kHz mono int16
+    /// Minimum chunk: ~2.0 sec (need ≥ 1.5s for reliable Whisper processing)
+    private let minChunkBytes = 16000 * 2 * 2
+    /// Maximum chunk: ~8.0 sec to avoid high latency and memory overhead
+    private let maxChunkBytes = 16000 * 2 * 8
+
+    private var wasSpeaking = false
+    private var totalBytesProcessed: Int = 0
+    private var recentTranscriptContext: String = ""
+
+    // Speaker tracking energies
+    private var recentMicEnergy: Float = 0
+    private var recentSystemEnergy: Float = 0
+    private var currentChunkSpeaker: SpeakerType = .unknown
 
     /// Accumulator for saving the full audio as a WAV file
     private var audioRecording = Data()
@@ -26,10 +40,14 @@ final class RecordingCoordinator: ObservableObject {
 
     func prepareModel() async {
         let modelSize = AppSettings.whisperModelSize
-        if !whisperEngine.isModelLoaded {
-            statusMessage = "بارگذاری مدل \(modelSize.rawValue)..."
-            await whisperEngine.loadModel(size: modelSize)
-            statusMessage = whisperEngine.isModelLoaded ? "آماده" : (whisperEngine.loadError ?? "خطا")
+        if !whisperEngine.isModelLoaded || whisperEngine.modelName != modelSize.rawValue {
+            if ModelManager.shared.isModelDownloaded(modelSize) {
+                statusMessage = "بارگذاری مدل \(modelSize.rawValue)..."
+                await whisperEngine.loadModel(size: modelSize)
+                statusMessage = whisperEngine.isModelLoaded ? "آماده" : (whisperEngine.loadError ?? "خطا")
+            } else {
+                statusMessage = "مدل دانلود نشده است"
+            }
         }
     }
 
@@ -41,94 +59,244 @@ final class RecordingCoordinator: ObservableObject {
         switch mode {
         case .microphone:
             micCapture.onAudioData = { [weak self] data in
-                Task { @MainActor in self?.handleAudioChunk(data) }
+                Task { @MainActor in
+                    self?.handleAudioChunk(data, sourceSpeaker: .user)
+                }
             }
         case .systemAudio:
             systemCapture.onAudioData = { [weak self] data in
-                Task { @MainActor in self?.handleAudioChunk(data) }
+                Task { @MainActor in
+                    self?.handleAudioChunk(data, sourceSpeaker: .system)
+                }
             }
         case .both:
             micCapture.onAudioData = { [weak self] data in
+                let energy = VADDetector.calculateRMS(data)
+                Task { @MainActor in
+                    self?.recentMicEnergy = energy
+                }
                 self?.audioMixer.appendMic(data)
             }
             systemCapture.onAudioData = { [weak self] data in
+                let energy = VADDetector.calculateRMS(data)
+                Task { @MainActor in
+                    self?.recentSystemEnergy = energy
+                }
                 self?.audioMixer.appendSystem(data)
             }
             audioMixer.onMixedData = { [weak self] data in
-                Task { @MainActor in self?.handleAudioChunk(data) }
+                Task { @MainActor in
+                    guard let self else { return }
+                    // Determine dominant speaker in dual mode
+                    let speaker: SpeakerType
+                    if self.recentMicEnergy > self.recentSystemEnergy * 1.25 && self.recentMicEnergy > 0.015 {
+                        speaker = .user
+                    } else if self.recentSystemEnergy > self.recentMicEnergy * 1.25 && self.recentSystemEnergy > 0.015 {
+                        speaker = .system
+                    } else {
+                        speaker = self.currentChunkSpeaker != .unknown ? self.currentChunkSpeaker : .unknown
+                    }
+                    self.handleAudioChunk(data, sourceSpeaker: speaker)
+                }
             }
             audioMixer.start()
         }
     }
 
-    private func handleAudioChunk(_ data: Data) {
+    private func handleAudioChunk(_ data: Data, sourceSpeaker: SpeakerType) {
         guard isActive else { return }
 
-        // Save audio for file export
+        // Save raw audio for file export
         audioRecording.append(data)
         audioChunkCount += 1
 
+        let isSpeakingNow = vad.processFrame(data)
         pcmBuffer.append(data)
 
-        while pcmBuffer.count >= chunkBytes {
-            let chunk = pcmBuffer.prefix(chunkBytes)
-            pcmBuffer.removeFirst(chunkBytes)
-            Task { await transcribeChunk(Data(chunk)) }
+        if isSpeakingNow {
+            currentChunkSpeaker = sourceSpeaker
         }
+
+        let bufferSize = pcmBuffer.count
+
+        // Trigger conditions:
+        // 1. We were speaking, but now silence was detected (natural sentence boundary) and buffer is long enough
+        let phraseEnded = wasSpeaking && !isSpeakingNow && bufferSize >= minChunkBytes
+        // 2. Continuous speech reached the maximum chunk window (prevent latency creep)
+        let reachedMaxWindow = bufferSize >= maxChunkBytes
+
+        if phraseEnded || reachedMaxWindow {
+            let chunkToTranscribe = pcmBuffer
+            let speaker = currentChunkSpeaker
+            let chunkStartTime = Double(totalBytesProcessed) / (16000.0 * 2.0)
+            let chunkEndTime = chunkStartTime + (Double(chunkToTranscribe.count) / (16000.0 * 2.0))
+
+            totalBytesProcessed += chunkToTranscribe.count
+            pcmBuffer.removeAll(keepingCapacity: true)
+            currentChunkSpeaker = .unknown
+
+            Task {
+                await transcribeChunk(
+                    chunkToTranscribe,
+                    speaker: speaker,
+                    startTime: chunkStartTime,
+                    endTime: chunkEndTime
+                )
+            }
+        } else if !isSpeakingNow && bufferSize > 16000 * 2 * 6 && !wasSpeaking {
+            // Buffer is full of pure silence without any speech: prune old silence only if truly silent
+            let bufferRMS = VADDetector.calculateRMS(pcmBuffer)
+            if bufferRMS < 0.002 {
+                let keepRecent = 16000 * 2 / 2 // keep last 0.5s
+                if bufferSize > keepRecent {
+                    let discarded = bufferSize - keepRecent
+                    pcmBuffer.removeFirst(discarded)
+                    totalBytesProcessed += discarded
+                }
+            }
+        }
+
+        wasSpeaking = isSpeakingNow
     }
 
-    private func transcribeChunk(_ chunk: Data) async {
-        print("[RecordingCoordinator] transcribeChunk called, size: \(chunk.count) bytes")
+    private static func isHallucinatedOrRepetitive(_ text: String) -> Bool {
+        let words = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+        guard words.count >= 2 else { return false }
 
-        guard let result = await whisperEngine.transcribe(pcm16: chunk, language: selectedLanguage) else {
+        // Check for 3 consecutive identical words (e.g. "باکم باکم باکم")
+        if words.count >= 3 {
+            for i in 0..<(words.count - 2) {
+                if words[i] == words[i+1] && words[i+1] == words[i+2] {
+                    return true
+                }
+            }
+        }
+
+        // Check for 2 consecutive identical 2-word phrases (e.g. "نهاشه لایم - نهاشه لایم")
+        if words.count >= 4 {
+            for i in 0..<(words.count - 3) {
+                if words[i] == words[i+2] && words[i+1] == words[i+3] {
+                    return true
+                }
+            }
+        }
+
+        // Check if a single word dominates the output (e.g. "های سمجد؟ های سمجد؟")
+        var counts: [String: Int] = [:]
+        for w in words {
+            counts[w, default: 0] += 1
+            if counts[w]! >= 3 && Double(counts[w]!) / Double(words.count) >= 0.4 {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func transcribeChunk(
+        _ chunk: Data,
+        speaker: SpeakerType,
+        startTime: Double,
+        endTime: Double
+    ) async {
+        print("[RecordingCoordinator] transcribeChunk called, size: \(chunk.count) bytes, speaker: \(speaker.rawValue)")
+
+        let basePrompt: String
+        let lang = selectedLanguage ?? "fa"
+        if lang == "fa" {
+            basePrompt = "گفتگوهای روزمره، جلسات، ویدئو، پادکست و تست صدا به زبان فارسی."
+        } else if lang == "en" {
+            basePrompt = "Conversational speech, meeting transcription, video, and everyday discussion."
+        } else {
+            basePrompt = ""
+        }
+
+        // Use clean static prompt to prevent cross-chunk hallucination feedback loops
+        let promptToUse = basePrompt.isEmpty ? nil : basePrompt
+
+        guard let result = await whisperEngine.transcribe(
+            pcm16: chunk,
+            language: selectedLanguage,
+            initialPrompt: promptToUse
+        ) else {
             print("[RecordingCoordinator] whisperEngine.transcribe returned nil")
             return
         }
 
-        print("[RecordingCoordinator] result: text='\(result.text)', words=\(result.words.count), lang=\(result.detectedLanguage ?? "?")")
+        let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
 
-        // If we have word-level tokens, use them
+        if Self.isHallucinatedOrRepetitive(text) {
+            print("[RecordingCoordinator] Suppressed repetitive hallucination: '\(text)'")
+            return
+        }
+
+        print("[RecordingCoordinator] result: text='\(text)', words=\(result.words.count), lang=\(result.detectedLanguage ?? "?")")
+
+        // Build word timestamps
+        let words: [TranscriptWord]
         if !result.words.isEmpty {
-            let words = result.words.map { w in
+            words = result.words.map { w in
                 TranscriptWord(
                     text: w.text,
                     start: w.start,
                     end: w.end,
-                    confidence: w.confidence
+                    confidence: w.confidence,
+                    speaker: speaker
                 )
             }
-            transcriptStore.appendWords(words)
-            return
+        } else {
+            // Fallback word
+            words = [
+                TranscriptWord(
+                    text: text,
+                    start: startTime,
+                    end: endTime,
+                    confidence: 0,
+                    speaker: speaker
+                )
+            ]
         }
 
-        // Fallback: if token_timestamps didn't produce words, but we got segment text,
-        // create a single TranscriptWord from the full text so it still shows up.
-        let text = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !text.isEmpty {
-            print("[RecordingCoordinator] Using fallback: full text without word timestamps")
-            let word = TranscriptWord(
-                text: text,
-                start: 0,
-                end: Double(chunk.count) / (16000 * 2),
-                confidence: 0
-            )
-            transcriptStore.appendWords([word])
-        }
+        // Create structured dialogue segment
+        let segment = TranscriptSegment(
+            speaker: speaker,
+            text: text,
+            start: startTime,
+            end: endTime,
+            words: words
+        )
+
+        transcriptStore.appendSegment(segment)
+
+        // Update context prompt with the tail of the recent transcript (max 10 words)
+        let wordsList = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+        let tailWords = wordsList.suffix(10).joined(separator: " ")
+        recentTranscriptContext = tailWords
     }
 
     func startRecording() async {
         await prepareModel()
         guard whisperEngine.isModelLoaded else {
-            statusMessage = whisperEngine.loadError ?? "مدل بارگذاری نشد"
+            if !ModelManager.shared.isModelDownloaded(AppSettings.whisperModelSize) {
+                statusMessage = "مدل دانلود نشده است. لطفاً از بخش تنظیمات مدل را دانلود کنید."
+            } else {
+                statusMessage = whisperEngine.loadError ?? "مدل بارگذاری نشد"
+            }
             return
         }
 
         audioSource = AppSettings.audioSource
         wireAudioCallbacks(for: audioSource)
         whisperEngine.resetTiming()
+        vad.reset()
+
         pcmBuffer.removeAll(keepingCapacity: true)
         audioRecording.removeAll(keepingCapacity: true)
         audioChunkCount = 0
+        totalBytesProcessed = 0
+        wasSpeaking = false
+        recentTranscriptContext = ""
+        currentChunkSpeaker = .unknown
 
         switch audioSource {
         case .microphone:
@@ -156,7 +324,9 @@ final class RecordingCoordinator: ObservableObject {
             }
         }
 
-        transcriptStore.startNewSession(language: selectedLanguage)
+        // Look up active calendar meeting title if available
+        let calTitle = CalendarService.shared.currentMeetingTitle()
+        transcriptStore.startNewSession(language: selectedLanguage, calendarEventTitle: calTitle)
 
         do {
             switch audioSource {
@@ -170,7 +340,7 @@ final class RecordingCoordinator: ObservableObject {
             }
             isActive = true
             statusMessage = statusLabel(for: audioSource)
-            print("[RecordingCoordinator] ✅ Recording started, source: \(audioSource.rawValue)")
+            print("[RecordingCoordinator] ✅ Recording started, source: \(audioSource.rawValue), calendar: \(calTitle ?? "none")")
         } catch {
             statusMessage = "خطا: \(error.localizedDescription)"
             print("[RecordingCoordinator] ❌ Failed to start recording: \(error)")
@@ -181,8 +351,11 @@ final class RecordingCoordinator: ObservableObject {
     func stopRecording() async {
         await stopAllCapture()
 
-        if !pcmBuffer.isEmpty {
-            await transcribeChunk(pcmBuffer)
+        if pcmBuffer.count >= 16000 * 2 {
+            let chunk = pcmBuffer
+            let start = Double(totalBytesProcessed) / (16000.0 * 2.0)
+            let end = start + (Double(chunk.count) / (16000.0 * 2.0))
+            await transcribeChunk(chunk, speaker: currentChunkSpeaker, startTime: start, endTime: end)
             pcmBuffer.removeAll()
         }
 
@@ -211,7 +384,7 @@ final class RecordingCoordinator: ObservableObject {
         switch mode {
         case .microphone: return "ضبط — میکروفون (on-device)"
         case .systemAudio: return "ضبط — صدای سیستم (on-device)"
-        case .both: return "ضبط — میک + سیستم (on-device)"
+        case .both: return "ضبط — میک + سیستم (تفکیک گوینده)"
         }
     }
 

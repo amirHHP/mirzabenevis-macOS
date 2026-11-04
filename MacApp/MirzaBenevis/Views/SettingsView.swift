@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var geminiAPIKey = KeychainHelper.loadGeminiAPIKey() ?? ""
+    @State private var customHost = AppSettings.geminiCustomHost
     @State private var showKey = false
     @State private var saved = false
     @State private var selectedModel = AppSettings.whisperModelSize
@@ -28,7 +29,7 @@ struct SettingsView: View {
                 .onChange(of: selectedModel) { _, v in AppSettings.whisperModelSize = v }
 
                 if modelManager.isDownloading {
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 6) {
                         ProgressView(value: modelManager.downloadProgress) {
                             HStack {
                                 Text(modelManager.statusMessage)
@@ -40,10 +41,21 @@ struct SettingsView: View {
                                 }
                             }
                         }
-                        if modelManager.downloadProgress > 0 {
-                            Text("\(Int(modelManager.downloadProgress * 100))%")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+                        HStack {
+                            if modelManager.totalBytes > 0 {
+                                let downloadedStr = ByteCountFormatter.string(fromByteCount: modelManager.downloadedBytes, countStyle: .file)
+                                let totalStr = ByteCountFormatter.string(fromByteCount: modelManager.totalBytes, countStyle: .file)
+                                Text("\(downloadedStr) از \(totalStr)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if modelManager.downloadProgress > 0 {
+                                Text("\(Int(modelManager.downloadProgress * 100))%")
+                                    .font(.caption2)
+                                    .bold()
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     Button("لغو دانلود", role: .destructive) {
@@ -68,6 +80,7 @@ struct SettingsView: View {
                             try? await modelManager.downloadModel(selectedModel)
                         }
                     }
+                    .disabled(modelManager.isDownloading)
                 }
 
                 Toggle("Metal / GPU (Apple Silicon)", isOn: $useGPU)
@@ -94,6 +107,7 @@ struct SettingsView: View {
                 }
 
                 Button("ذخیره") {
+                    AppSettings.geminiCustomHost = customHost
                     if KeychainHelper.saveGeminiAPIKey(geminiAPIKey) { saved = true }
                 }
                 .disabled(geminiAPIKey.isEmpty)
@@ -102,6 +116,18 @@ struct SettingsView: View {
                     Label("ذخیره شد", systemImage: "checkmark.circle.fill")
                         .foregroundStyle(.green)
                         .font(.caption)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("آدرس هاست / پروکسی معکوس (اختیاری):")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    TextField("https://generativelanguage.googleapis.com", text: $customHost)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.caption)
+                    Text("نکته: در صورت استفاده از داخل ایران، VPN را فعال کنید یا از آدرس پروکسی معتبر استفاده کنید.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -115,9 +141,33 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("ScreenCaptureKit صدای Zoom/Meet را بدون BlackHole ضبط می‌کند.")
+                Text("در حالت «میک + سیستم»، برنامه با مقایسه انرژی صداها گویندگان را به صورت «شما» و «جلسه» تفکیک می‌کند.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("یکپارچگی با تقویم مک (Calendar Integration)") {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("اتصال به تقویم و رویدادهای جلسات")
+                            .font(.body)
+                        Text("نام جلسه و موضوع به‌طور خودکار هنگام شروع ضبط از تقویم برداشته می‌شود.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if CalendarService.shared.hasCalendarAccess {
+                        Label("فعال", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                    } else {
+                        Button("درخواست دسترسی") {
+                            Task {
+                                _ = await CalendarService.shared.requestAccess()
+                            }
+                        }
+                    }
+                }
             }
 
             Section("Core ML (اختیاری)") {

@@ -57,7 +57,13 @@ final class AudioCaptureService: ObservableObject {
                   ) else { return }
 
             var error: NSError?
+            nonisolated(unsafe) var isConsumed = false
             let inputBlock: AVAudioConverterInputBlock = { _, outStatus in
+                if isConsumed {
+                    outStatus.pointee = .noDataNow
+                    return nil
+                }
+                isConsumed = true
                 outStatus.pointee = .haveData
                 return buffer
             }

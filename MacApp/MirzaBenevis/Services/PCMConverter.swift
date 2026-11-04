@@ -83,7 +83,7 @@ enum PCMConverter {
         return Data(bytes: channelData[0], count: byteCount)
     }
 
-    /// Mix two equal-length PCM16 mono buffers by averaging samples.
+    /// Mix two equal-length PCM16 mono buffers with headroom-preserving soft mixing.
     static func mixPCM16(_ a: Data, _ b: Data) -> Data {
         let count = min(a.count, b.count)
         guard count >= 2 else { return a.count >= b.count ? a : b }
@@ -97,8 +97,12 @@ enum PCMConverter {
                     let outSamples = outPtr.bindMemory(to: Int16.self)
                     let sampleCount = count / MemoryLayout<Int16>.size
                     for i in 0..<sampleCount {
-                        let mixed = (Int32(aSamples[i]) + Int32(bSamples[i])) / 2
-                        outSamples[i] = Int16(clamping: mixed)
+                        let sampleA = Float(aSamples[i])
+                        let sampleB = Float(bSamples[i])
+                        // Headroom scaling prevents harsh digital clipping when both sources are loud
+                        let mixed = (sampleA + sampleB) * 0.75
+                        let clamped = max(-32767.0, min(32767.0, mixed))
+                        outSamples[i] = Int16(clamped)
                     }
                 }
             }

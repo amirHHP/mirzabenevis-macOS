@@ -44,8 +44,6 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
-> بک‌اند Python قبلی در `legacy/python-backend/` نگه‌داری شده (معماری قدیمی).
-
 ## پیش‌نیازها
 
 - macOS 14+
@@ -92,20 +90,25 @@ open MacApp/MirzaBenevis.xcodeproj
 | tiny | ~75 MB | سریع، جلسات کوتاه |
 | base | ~142 MB | متعادل (پیش‌فرض) |
 | small | ~466 MB | دقت بالاتر |
+| medium | ~1.5 GB | بسیار دقیق |
+| turbo | ~1.6 GB | **Large v3 Turbo** — بهترین دقت برای زبان فارسی با سرعت بالا |
 
 مدل‌ها از Hugging Face دانلود و در `~/Library/Application Support/MirzaBenevis/models/` ذخیره می‌شوند.
 
-## Core ML (اختیاری)
+## ویژگی‌های نسخه جدید
 
-برای سرعت بیشتر encoder روی Apple Silicon:
-
-1. [راهنمای Core ML در whisper.cpp](https://github.com/ggerganov/whisper.cpp#core-ml-support)
-2. فایل `ggml-base-encoder.mlmodelc` را در پوشه models قرار دهید
+- **تشخیص فعالیت صوتی (VAD هوشمند):** تقطیع جملات با مکث طبیعی گوینده به جای قطعات ثابت ۳ ثانیه‌ای.
+- **تفکیک خودکار گویندگان (Speaker Diarization):** برچسب‌گذاری مجزای صحبت‌های «شما» و «جلسه / همکاران».
+- **یکپارچگی با تقویم مک (Calendar Integration):** نام‌گذاری هوشمند خودکار جلسات از روی تقویم با فریم‌ورک بومی EventKit.
+- **قالب‌های تخصصی خلاصه (Summary Templates):** خلاصه عمومی، استندآپ روزانه/اسکرام، جلسات ۱ به ۱، جلسات فروش و جلسات معماری فنی.
+- **استخراج تعاملی وظایف (Action Items):** استخراج خودکار تسک‌ها با چک‌باکس و قابلیت کپی برای Notion و Slack.
+- **پرسش و پاسخ از جلسه (Chat with Meeting):** امکان پرسیدن سوال از تصمیمات و محتوای جلسه با هوش مصنوعی Gemini.
 
 ## مجوزها
 
 - **میکروفون** — صدای شما
 - **Screen Recording** — صدای سیستم (ScreenCaptureKit)
+- **تقویم (Calendar)** — خواندن خودکار عنوان جلسه از رویداد تقویم
 
 ## ساختار پروژه
 
@@ -119,7 +122,6 @@ mirzabenevis-recorder3/
 ├── scripts/
 │   ├── build_whisper.sh
 │   └── generate_xcode_project.py
-└── legacy/python-backend/      # معماری قدیمی (FastAPI)
 ```
 
 ## مقایسه با Python + BlackHole

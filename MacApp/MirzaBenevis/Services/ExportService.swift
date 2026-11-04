@@ -51,7 +51,7 @@ enum ExportService {
         }
 
         let panel = NSSavePanel()
-        panel.title = "ذخیره رونوشت"
+        panel.title = "ذخیره رونوشت جلسه"
         panel.nameFieldStringValue = sanitizedFilename(session.title, ext: format.fileExtension)
         panel.allowedContentTypes = [format.contentType]
         panel.canCreateDirectories = true
@@ -90,7 +90,7 @@ enum ExportService {
         let ltrStyle = NSMutableParagraphStyle()
         ltrStyle.lineSpacing = 4
 
-        func drawPage(title: String, body: String, isRTL: Bool = true) {
+        func drawPage(title: String, subtitle: String? = nil, body: String, isRTL: Bool = true) {
             context.beginPDFPage(nil)
             var y: CGFloat = pageHeight - margin
 
@@ -98,25 +98,26 @@ enum ExportService {
                 .font: NSFont.boldSystemFont(ofSize: 18),
                 .paragraphStyle: isRTL ? rtlStyle : ltrStyle
             ]
-            let titleRect = CGRect(x: margin, y: y - 30, width: contentWidth, height: 30)
+            let titleRect = CGRect(x: margin, y: y - 28, width: contentWidth, height: 28)
             (title as NSString).draw(in: titleRect, withAttributes: titleAttrs)
-            y -= 50
+            y -= 40
 
-            let meta = "\(session.createdAt.formatted()) | \(session.wordCount) کلمه"
-            let metaAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 10),
-                .foregroundColor: NSColor.secondaryLabelColor,
-                .paragraphStyle: isRTL ? rtlStyle : ltrStyle
-            ]
-            (meta as NSString).draw(in: CGRect(x: margin, y: y - 16, width: contentWidth, height: 16), withAttributes: metaAttrs)
-            y -= 30
+            if let subtitle {
+                let metaAttrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 10),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .paragraphStyle: isRTL ? rtlStyle : ltrStyle
+                ]
+                (subtitle as NSString).draw(in: CGRect(x: margin, y: y - 16, width: contentWidth, height: 16), withAttributes: metaAttrs)
+                y -= 26
+            }
 
             let bodyAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 12),
+                .font: NSFont.systemFont(ofSize: 11),
                 .paragraphStyle: isRTL ? rtlStyle : ltrStyle
             ]
 
-            let bodyHeight = pageHeight - margin - (pageHeight - y)
+            let bodyHeight = max(50, y - margin)
             (body as NSString).draw(
                 in: CGRect(x: margin, y: margin, width: contentWidth, height: bodyHeight),
                 withAttributes: bodyAttrs
@@ -124,10 +125,25 @@ enum ExportService {
             context.endPDFPage()
         }
 
-        drawPage(title: session.title, body: session.fullText.isEmpty ? "—" : session.fullText)
+        let meta = "\(session.createdAt.formatted()) | \(session.wordCount) کلمه\(session.calendarEventTitle.map { " | رویداد: \($0)" } ?? "")"
 
+        // Page 1: Dialogue transcript
+        let transcriptText = session.formattedDialogue.isEmpty ? "—" : session.formattedDialogue
+        drawPage(title: session.title, subtitle: meta, body: transcriptText)
+
+        // Page 2: Summary (if present)
         if let summary = session.summary, !summary.isEmpty {
-            drawPage(title: "خلاصه جلسه", body: summary)
+            drawPage(title: "خلاصه هوشمند جلسه", subtitle: session.title, body: summary)
+        }
+
+        // Page 3: Action Items (if present)
+        if !session.actionItems.isEmpty {
+            let itemsText = session.actionItems.map { item in
+                let check = item.isCompleted ? "[✓]" : "[ ]"
+                let assignee = item.assignee.map { " (\($0))" } ?? ""
+                return "\(check) \(item.text)\(assignee)"
+            }.joined(separator: "\n\n")
+            drawPage(title: "اقدامات بعدی و وظایف (Action Items)", subtitle: session.title, body: itemsText)
         }
 
         context.closePDF()
@@ -176,16 +192,36 @@ enum ExportService {
     private static func buildDocumentXML(session: TranscriptionSession) -> String {
         var paragraphs = [
             xmlParagraph(session.title, bold: true, size: 32),
-            xmlParagraph("\(session.createdAt.formatted()) | \(session.wordCount) کلمه", size: 20),
-            xmlParagraph(""),
-            xmlParagraph("رونوشت:", bold: true),
-            xmlParagraph(session.fullText.isEmpty ? "—" : session.fullText)
+            xmlParagraph("\(session.createdAt.formatted()) | \(session.wordCount) کلمه\(session.calendarEventTitle.map { " | رویداد: \($0)" } ?? "")", size: 20),
+            xmlParagraph("")
         ]
 
         if let summary = session.summary, !summary.isEmpty {
-            paragraphs.append(xmlParagraph(""))
-            paragraphs.append(xmlParagraph("خلاصه:", bold: true))
+            paragraphs.append(xmlParagraph("خلاصه هوشمند جلسه:", bold: true, size: 26))
             paragraphs.append(xmlParagraph(summary))
+            paragraphs.append(xmlParagraph(""))
+        }
+
+        if !session.actionItems.isEmpty {
+            paragraphs.append(xmlParagraph("اقدامات بعدی و وظایف:", bold: true, size: 26))
+            for item in session.actionItems {
+                let check = item.isCompleted ? "☑" : "☐"
+                let assignee = item.assignee.map { " [\($0)]" } ?? ""
+                paragraphs.append(xmlParagraph("\(check) \(item.text)\(assignee)"))
+            }
+            paragraphs.append(xmlParagraph(""))
+        }
+
+        paragraphs.append(xmlParagraph("رونوشت کامل (گفتگو):", bold: true, size: 26))
+
+        if !session.segments.isEmpty {
+            for segment in session.segments {
+                let speakerLabel = "[\(segment.speaker.displayName)] (\(segment.formattedTime))"
+                paragraphs.append(xmlParagraph(speakerLabel, bold: true, size: 20))
+                paragraphs.append(xmlParagraph(segment.text, size: 22))
+            }
+        } else {
+            paragraphs.append(xmlParagraph(session.fullText.isEmpty ? "—" : session.fullText))
         }
 
         return """

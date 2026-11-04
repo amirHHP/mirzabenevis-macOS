@@ -5,6 +5,7 @@ enum WhisperModelSize: String, CaseIterable, Identifiable, Codable {
     case base
     case small
     case medium
+    case turbo
 
     var id: String { rawValue }
 
@@ -14,10 +15,16 @@ enum WhisperModelSize: String, CaseIterable, Identifiable, Codable {
         case .base: return "Base (~142 MB) — متعادل"
         case .small: return "Small (~466 MB) — دقیق"
         case .medium: return "Medium (~1.5 GB) — بسیار دقیق"
+        case .turbo: return "Large v3 Turbo (~1.6 GB) — بهترین کیفیت فارسی (دقیق و بهینه)"
         }
     }
 
-    var downloadFileName: String { "ggml-\(rawValue).bin" }
+    var downloadFileName: String {
+        switch self {
+        case .turbo: return "ggml-large-v3-turbo.bin"
+        default: return "ggml-\(rawValue).bin"
+        }
+    }
 
     /// Multiple mirror URLs – tried in order until one works.
     var downloadURLs: [URL] {
@@ -35,6 +42,7 @@ enum WhisperModelSize: String, CaseIterable, Identifiable, Codable {
         case .base: return 142
         case .small: return 466
         case .medium: return 1500
+        case .turbo: return 1600
         }
     }
 }
@@ -71,10 +79,14 @@ final class ModelManager: ObservableObject {
     @Published private(set) var statusMessage = ""
     @Published private(set) var downloadError: String?
     @Published private(set) var downloadSpeed: String = ""
+    @Published private(set) var downloadedBytes: Int64 = 0
+    @Published private(set) var totalBytes: Int64 = 0
+    @Published private(set) var currentlyDownloadingSize: WhisperModelSize?
 
     static let shared = ModelManager()
 
     private var activeDelegate: DownloadDelegate?
+    private var activeDownloadTask: Task<Void, Error>?
 
     var modelsDirectory: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
@@ -112,21 +124,52 @@ final class ModelManager: ObservableObject {
     /// Cancel the in-progress download.
     func cancelDownload() {
         activeDelegate?.cancel()
+        activeDownloadTask?.cancel()
+        activeDownloadTask = nil
+        activeDelegate = nil
         isDownloading = false
+        currentlyDownloadingSize = nil
         downloadProgress = 0
+        downloadedBytes = 0
+        totalBytes = 0
         statusMessage = "دانلود لغو شد"
         downloadSpeed = ""
     }
 
     /// Download with real progress, retries across mirrors, and cancel support.
     func downloadModel(_ size: WhisperModelSize) async throws {
+        // Prevent concurrent or duplicate downloads
+        if isDownloading {
+            if currentlyDownloadingSize == size, let existing = activeDownloadTask {
+                print("[ModelManager] Already downloading \(size.rawValue), joining existing task")
+                try await existing.value
+                return
+            } else {
+                print("[ModelManager] Cancelling existing download to start \(size.rawValue)")
+                cancelDownload()
+            }
+        }
+
+        let task = Task { @MainActor in
+            try await executeDownload(size)
+        }
+        activeDownloadTask = task
+        try await task.value
+    }
+
+    private func executeDownload(_ size: WhisperModelSize) async throws {
         isDownloading = true
+        currentlyDownloadingSize = size
         downloadProgress = 0
+        downloadedBytes = 0
+        totalBytes = 0
         downloadError = nil
         downloadSpeed = ""
-        statusMessage = "در حال دانلود \(size.downloadFileName)..."
+        statusMessage = "در حال اتصال به سرور..."
         defer {
             isDownloading = false
+            currentlyDownloadingSize = nil
+            activeDownloadTask = nil
             activeDelegate = nil
         }
 
@@ -137,6 +180,8 @@ final class ModelManager: ObservableObject {
             let mirrorName = index == 0 ? "Hugging Face" : "GitHub"
             statusMessage = "در حال دانلود از \(mirrorName)..."
             downloadProgress = 0
+            downloadedBytes = 0
+            totalBytes = 0
             downloadSpeed = ""
 
             do {
@@ -203,7 +248,9 @@ final class ModelManager: ObservableObject {
             while !Task.isCancelled {
                 self.downloadProgress = delegate.progress
                 self.downloadSpeed = delegate.formattedSpeed
-                try? await Task.sleep(for: .milliseconds(250))
+                self.downloadedBytes = delegate.totalBytesWritten
+                self.totalBytes = delegate.totalBytesExpected
+                try? await Task.sleep(for: .milliseconds(200))
             }
         }
 
@@ -254,6 +301,8 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
     private var downloadTask: URLSessionDownloadTask?
 
     private(set) var progress: Double = 0
+    private(set) var totalBytesWritten: Int64 = 0
+    private(set) var totalBytesExpected: Int64 = 0
     private(set) var httpResponse: HTTPURLResponse?
 
     // Speed tracking
@@ -300,16 +349,22 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
                     didWriteData bytesWritten: Int64, totalBytesWritten: Int64,
                     totalBytesExpectedToWrite: Int64) {
         lock.lock()
-        if totalBytesExpectedToWrite > 0 {
-            progress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+        // Ignore tiny responses (like 302 redirects or small web error bodies)
+        if totalBytesExpectedToWrite > 1_000_000 {
+            self.totalBytesWritten = totalBytesWritten
+            self.totalBytesExpected = totalBytesExpectedToWrite
+            let newProgress = Double(totalBytesWritten) / Double(totalBytesExpectedToWrite)
+            self.progress = max(self.progress, min(newProgress, 1.0))
         }
 
         // Calculate speed
         let now = Date()
         let elapsed = now.timeIntervalSince(lastSpeedUpdate)
-        if elapsed >= 1.0 {
+        if elapsed >= 0.8 {
             let bytesInInterval = totalBytesWritten - lastBytesWritten
-            currentSpeed = Double(bytesInInterval) / elapsed
+            if bytesInInterval >= 0 {
+                currentSpeed = Double(bytesInInterval) / elapsed
+            }
             lastBytesWritten = totalBytesWritten
             lastSpeedUpdate = now
         }

@@ -19,10 +19,23 @@ final class TranscriptStore: ObservableObject {
         loadSessions()
     }
 
-    func startNewSession(language: String? = nil) {
-        let session = TranscriptionSession(language: language)
+    func startNewSession(language: String? = nil, title: String? = nil, calendarEventTitle: String? = nil) {
+        let defaultTitle = title ?? calendarEventTitle ?? "جلسه جدید"
+        let session = TranscriptionSession(
+            title: defaultTitle,
+            language: language,
+            calendarEventTitle: calendarEventTitle
+        )
         currentSession = session
         isRecording = true
+    }
+
+    func appendSegment(_ segment: TranscriptSegment) {
+        guard var session = currentSession else { return }
+        session.segments.append(segment)
+        session.words.append(contentsOf: segment.words)
+        session.updatedAt = Date()
+        currentSession = session
     }
 
     func appendWords(_ words: [TranscriptWord]) {
@@ -59,6 +72,47 @@ final class TranscriptStore: ObservableObject {
             sessions[index].updatedAt = Date()
         }
         saveSessions()
+    }
+
+    func setActionItems(_ items: [MeetingActionItem], for sessionID: UUID) {
+        if currentSession?.id == sessionID {
+            currentSession?.actionItems = items
+        }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            sessions[index].actionItems = items
+            sessions[index].updatedAt = Date()
+        }
+        saveSessions()
+    }
+
+    func toggleActionItem(_ itemID: UUID, in sessionID: UUID) {
+        if let current = currentSession, current.id == sessionID {
+            if let itemIndex = current.actionItems.firstIndex(where: { $0.id == itemID }) {
+                var updated = current
+                updated.actionItems[itemIndex].isCompleted.toggle()
+                currentSession = updated
+            }
+        }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            if let itemIndex = sessions[index].actionItems.firstIndex(where: { $0.id == itemID }) {
+                sessions[index].actionItems[itemIndex].isCompleted.toggle()
+                sessions[index].updatedAt = Date()
+                saveSessions()
+            }
+        }
+    }
+
+    func updateTitle(_ title: String, for sessionID: UUID) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if currentSession?.id == sessionID {
+            currentSession?.title = trimmed
+        }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            sessions[index].title = trimmed
+            sessions[index].updatedAt = Date()
+            saveSessions()
+        }
     }
 
     func deleteSession(_ session: TranscriptionSession) {
