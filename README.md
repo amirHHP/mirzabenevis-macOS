@@ -11,6 +11,16 @@
 - 🗜️ **[دانلود نسخه فشرده MirzaBenevis-v1.0.0.zip](https://github.com/amirHHP/mirzabenevis-recorder3/releases/download/v1.0.0/MirzaBenevis-v1.0.0.zip)**
 - 🔗 **[صفحه تمام نسخه‌ها (GitHub Releases)](https://github.com/amirHHP/mirzabenevis-recorder3/releases)**
 
+## تصاویر برنامه (Screenshots)
+
+<p align="center">
+  <img src="docs/screenshots/sessions.png" width="100%" alt="پنجره جلسات و یادداشت‌ها، خلاصه هوشمند، استخراج وظایف و تفکیک گویندگان" />
+</p>
+
+| منوبار سریع و رونوشت زنده | تنظیمات مدل‌های On-Device و هوش مصنوعی |
+|:---:|:---:|
+| <img src="docs/screenshots/menubar.png" width="360" alt="منوبار میرزا بنویس" /> | <img src="docs/screenshots/settings.png" width="440" alt="تنظیمات میرزا بنویس" /> |
+
 ## چرا Swift + whisper.cpp؟
 
 ### ۱. دسترسی بومی به صدای سیستم (ScreenCaptureKit)
