@@ -1,5 +1,4 @@
-# Python (legacy)
-legacy/python-backend/.venv/
+# Python
 vendor/whisper.cpp/build*/
 vendor/whisper.cpp/build-*/
 __pycache__/
@@ -26,3 +25,6 @@ build/
 # Build and Output Directories
 build_whisper/
 build_output/
+*.iconset/
+sh-thd-*
+
