@@ -2,6 +2,15 @@
 
 اپ منوبار macOS برای تبدیل گفتار جلسات به متن — **کاملاً Native** با Swift + whisper.cpp + ScreenCaptureKit.
 
+[![Latest Release](https://img.shields.io/github/v/release/amirHHP/mirzabenevis-recorder3?label=Release&color=blue)](https://github.com/amirHHP/mirzabenevis-recorder3/releases/latest)
+
+## دانلود سریع (Ready-to-Use)
+
+می‌توانید آخرین نسخه برنامه را بدون نیاز به کامپایل، مستقیماً از بخش Releases گیت‌هاب دریافت کنید:
+- 📦 **[دانلود مستقیم MirzaBenevis-v1.0.0.dmg](https://github.com/amirHHP/mirzabenevis-recorder3/releases/download/v1.0.0/MirzaBenevis-v1.0.0.dmg)** (توصیه شده)
+- 🗜️ **[دانلود نسخه فشرده MirzaBenevis-v1.0.0.zip](https://github.com/amirHHP/mirzabenevis-recorder3/releases/download/v1.0.0/MirzaBenevis-v1.0.0.zip)**
+- 🔗 **[صفحه تمام نسخه‌ها (GitHub Releases)](https://github.com/amirHHP/mirzabenevis-recorder3/releases)**
+
 ## چرا Swift + whisper.cpp؟
 
 ### ۱. دسترسی بومی به صدای سیستم (ScreenCaptureKit)
