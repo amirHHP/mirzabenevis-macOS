@@ -257,15 +257,25 @@ final class RecordingCoordinator: ObservableObject {
             ]
         }
 
+        // Extract acoustic voice embedding from the audio chunk
+        let embedding = VoiceEmbeddingEngine.shared.extractEmbedding(from: chunk)
+
+        var initialCustomName: String? = nil
+        if speaker == .user {
+            initialCustomName = AppSettings.userName
+        } else if let emb = embedding, speaker == .system && audioSource == .both {
+            initialCustomName = VoiceEmbeddingEngine.shared.classifyOnline(embedding: emb)
+        }
+
         // Create structured dialogue segment
-        let initialCustomName = (speaker == .user) ? AppSettings.userName : nil
         let segment = TranscriptSegment(
             speaker: speaker,
             speakerCustomName: initialCustomName,
             text: text,
             start: startTime,
             end: endTime,
-            words: words
+            words: words,
+            voiceEmbedding: embedding
         )
 
         transcriptStore.appendSegment(segment)
@@ -291,6 +301,7 @@ final class RecordingCoordinator: ObservableObject {
         wireAudioCallbacks(for: audioSource)
         whisperEngine.resetTiming()
         vad.reset()
+        VoiceEmbeddingEngine.shared.resetOnlineClusters()
 
         pcmBuffer.removeAll(keepingCapacity: true)
         audioRecording.removeAll(keepingCapacity: true)

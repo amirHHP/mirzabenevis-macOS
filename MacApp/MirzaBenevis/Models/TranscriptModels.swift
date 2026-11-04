@@ -77,6 +77,7 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
     var start: Double
     var end: Double
     var words: [TranscriptWord]
+    var voiceEmbedding: [Float]?
     let createdAt: Date
 
     init(
@@ -87,6 +88,7 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
         start: Double,
         end: Double,
         words: [TranscriptWord] = [],
+        voiceEmbedding: [Float]? = nil,
         createdAt: Date = Date()
     ) {
         self.id = id
@@ -96,6 +98,7 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
         self.start = start
         self.end = end
         self.words = words
+        self.voiceEmbedding = voiceEmbedding
         self.createdAt = createdAt
     }
 
@@ -108,6 +111,7 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
         start = try container.decodeIfPresent(Double.self, forKey: .start) ?? 0
         end = try container.decodeIfPresent(Double.self, forKey: .end) ?? 0
         words = try container.decodeIfPresent([TranscriptWord].self, forKey: .words) ?? []
+        voiceEmbedding = try container.decodeIfPresent([Float].self, forKey: .voiceEmbedding)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
     }
 

@@ -263,18 +263,29 @@ struct SessionDetailView: View {
 
                     Spacer()
 
-                    Button {
-                        Task { await runAIDiarization() }
-                    } label: {
-                        if isDiarizing {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Label("تفکیک هوشمند با Gemini", systemImage: "sparkles")
+                    HStack(spacing: 8) {
+                        Button {
+                            runVoiceEmbeddingClustering()
+                        } label: {
+                            Label("تفکیک صوتی آفلاین (Embeddings)", systemImage: "waveform.badge.magnifyingglass")
                         }
+                        .buttonStyle(.bordered)
+                        .tint(.blue)
+                        .disabled(session.segments.isEmpty)
+
+                        Button {
+                            Task { await runAIDiarization() }
+                        } label: {
+                            if isDiarizing {
+                                ProgressView().controlSize(.small)
+                            } else {
+                                Label("تفکیک هوشمند با Gemini", systemImage: "sparkles")
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.indigo)
+                        .disabled(isDiarizing || session.segments.isEmpty || geminiAPIKey.isEmpty)
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.indigo)
-                    .disabled(isDiarizing || session.segments.isEmpty || geminiAPIKey.isEmpty)
                 }
 
                 if geminiAPIKey.isEmpty {
@@ -671,6 +682,19 @@ struct SessionDetailView: View {
         } catch {
             exportMessage = nil
             summaryError = error.localizedDescription
+        }
+    }
+
+    private func runVoiceEmbeddingClustering() {
+        let results = VoiceEmbeddingEngine.shared.cluster(segments: session.segments)
+        if results.isEmpty {
+            diarizeError = "داده‌های صوتی برای این جلسه موجود نیست یا مدت زمان دیالوگ‌ها برای استخراج بردار صوتی کافی نبوده است."
+            diarizeSuccess = nil
+        } else {
+            transcriptStore.applyDiarization(assignments: results, to: session.id)
+            let uniqueCount = Set(results.values).count
+            diarizeSuccess = "تفکیک صوتی آفلاین (Voice Embeddings) با موفقیت انجام شد: \(uniqueCount) گروه صوتی بر اساس تن و ویژگی‌های آکوستیک تفکیک شدند."
+            diarizeError = nil
         }
     }
 
