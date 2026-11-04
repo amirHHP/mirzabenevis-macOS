@@ -258,8 +258,10 @@ final class RecordingCoordinator: ObservableObject {
         }
 
         // Create structured dialogue segment
+        let initialCustomName = (speaker == .user) ? AppSettings.userName : nil
         let segment = TranscriptSegment(
             speaker: speaker,
+            speakerCustomName: initialCustomName,
             text: text,
             start: startTime,
             end: endTime,

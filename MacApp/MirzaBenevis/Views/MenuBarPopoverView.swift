@@ -153,12 +153,12 @@ struct MenuBarPopoverView: View {
                     LazyVStack(alignment: .leading, spacing: 6) {
                         ForEach(session.segments.suffix(10)) { segment in
                             HStack(alignment: .top, spacing: 6) {
-                                Text(segment.speaker.shortLabel)
+                                Text(segment.speakerDisplayName)
                                     .font(.system(size: 10, weight: .bold))
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 2)
-                                    .background(speakerColor(segment.speaker).opacity(0.18))
-                                    .foregroundStyle(speakerColor(segment.speaker))
+                                    .background(speakerColor(segment.speakerDisplayName).opacity(0.18))
+                                    .foregroundStyle(speakerColor(segment.speakerDisplayName))
                                     .cornerRadius(4)
 
                                 Text(segment.text)
@@ -182,12 +182,13 @@ struct MenuBarPopoverView: View {
         }
     }
 
-    private func speakerColor(_ speaker: SpeakerType) -> Color {
-        switch speaker {
-        case .user: return .blue
-        case .system: return .orange
-        case .unknown: return .secondary
+    private func speakerColor(_ name: String) -> Color {
+        if name == "شما" || name == AppSettings.userName {
+            return .blue
         }
+        let palette: [Color] = [.purple, .teal, .orange, .pink, .indigo, .green, .mint, .cyan]
+        let hash = abs(name.hashValue)
+        return palette[hash % palette.count]
     }
 
     private var footer: some View {

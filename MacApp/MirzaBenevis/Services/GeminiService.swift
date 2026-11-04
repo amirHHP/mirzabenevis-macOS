@@ -264,4 +264,76 @@ enum GeminiService {
 
         return try await callGemini(prompt: prompt, apiKey: apiKey, temperature: 0.3)
     }
+
+    /// Intelligently diarize and attribute speaker names to segments using Gemini LLM.
+    static func diarizeSpeakers(
+        segments: [TranscriptSegment],
+        attendees: [String],
+        apiKey: String
+    ) async throws -> [UUID: String] {
+        guard !segments.isEmpty else { return [:] }
+
+        let myName = AppSettings.userName
+        let attendeesList = attendees.isEmpty ? "نامشخص (از متن مکالمه استخراج کن)" : attendees.joined(separator: "، ")
+
+        let segmentsFormatted = segments.map { seg in
+            "[ID: \(seg.id.uuidString)] (\(seg.formattedTime)) [منبع: \(seg.speaker.displayName)]: \(seg.text)"
+        }.joined(separator: "\n")
+
+        let prompt = """
+        تو یک هوش مصنوعی متخصص تحلیل و پردازش جلسات کاری و روزمره هستی.
+        وظیفه تو تفکیک و انتساب گویندگان (Speaker Diarization & Attribution) به هر بخش از مکالمه زیر است.
+
+        اطلاعات اولیه:
+        - نام صاحب سیستم (کاربر میکروفون): \(myName)
+        - لیست حاضرین احتمالی جلسه: \(attendeesList)
+
+        دستورالعمل:
+        ۱. بخش‌هایی که منبع آنها «شما» ثبت شده، معمولاً توسط «\(myName)» بیان شده‌اند مگر خلاف آن از متن آشکار باشد.
+        ۲. با خواندن دقیق متن گفتگو، ارجاعات متقابل (مثل «علی جان»، «مهندس»، «خانم رضایی»، «سلام من سارا هستم»)، گوینده هر قطعه را به نام مشخص او منتسب کن.
+        ۳. اگر نام دقیق فردی از متن پیدا نشد، اما مشخص است که از شرکت‌کنندگان جلسه است، از نام‌های متمایز مانند «گوینده ۱»، «گوینده ۲»، «مشتری» یا اسامی حدس‌زده شده استفاده کن.
+        ۴. پاسخ را منحصراً در قالب یک آرایه JSON معتبر بدون هیچ توضیح اضافی، بدون کاراکترهای اضافی و بدون مقدمه برگردان:
+        [
+          {"id": "<uuid-string>", "speakerName": "<نام گوینده>"}
+        ]
+
+        بخش‌های مکالمه:
+        \(segmentsFormatted)
+        """
+
+        let rawResponse = try await callGemini(prompt: prompt, apiKey: apiKey, temperature: 0.1)
+
+        var jsonString = rawResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        if jsonString.hasPrefix("```json") {
+            jsonString = String(jsonString.dropFirst(7))
+        } else if jsonString.hasPrefix("```") {
+            jsonString = String(jsonString.dropFirst(3))
+        }
+        if jsonString.hasSuffix("```") {
+            jsonString = String(jsonString.dropLast(3))
+        }
+        jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        struct DiarizationItem: Codable {
+            let id: String
+            let speakerName: String
+        }
+
+        guard let data = jsonString.data(using: .utf8),
+              let items = try? JSONDecoder().decode([DiarizationItem].self, from: data) else {
+            print("[GeminiService] Failed to parse diarization JSON: \(jsonString)")
+            throw GeminiError.invalidResponse
+        }
+
+        var results: [UUID: String] = [:]
+        for item in items {
+            if let uuid = UUID(uuidString: item.id) {
+                let name = item.speakerName.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty {
+                    results[uuid] = name
+                }
+            }
+        }
+        return results
+    }
 }

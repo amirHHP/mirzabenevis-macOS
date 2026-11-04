@@ -182,22 +182,36 @@ else
   echo "  ✅ Signed with ${SIGNING_IDENTITY}"
 fi
 
-# ─── Step 7: Create DMG Installer (Optional) ─────────────────────────────────
+# ─── Step 7: Package Release Artifacts (DMG & ZIP) ───────────────────────────
 
-echo "=== 7/7 Creating DMG Installer ==="
-DMG_TEMP="${BUILD_DIR}/dmg_staging"
+echo "=== 7/7 Packaging Release Artifacts ==="
+APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "${CONTENTS_DIR}/Info.plist" 2>/dev/null || echo "1.0.0")
+echo "  Version: v${APP_VERSION}"
+
+DMG_VERSIONED="${BUILD_DIR}/${APP_NAME}-v${APP_VERSION}.dmg"
 DMG_FILE="${BUILD_DIR}/${APP_NAME}.dmg"
+ZIP_VERSIONED="${BUILD_DIR}/${APP_NAME}-v${APP_VERSION}.zip"
+ZIP_FILE="${BUILD_DIR}/${APP_NAME}.zip"
 
+# 1. Create ZIP archive (preserves symlinks and code signature)
+echo "  Creating ZIP archive..."
+ditto -c -k --sequesterRsrc --keepParent "$APP_BUNDLE" "$ZIP_VERSIONED"
+cp -f "$ZIP_VERSIONED" "$ZIP_FILE"
+echo "  ✅ ZIP created: ${ZIP_VERSIONED}"
+
+# 2. Create DMG Installer
+DMG_TEMP="${BUILD_DIR}/dmg_staging"
 rm -rf "$DMG_TEMP"
 mkdir -p "$DMG_TEMP"
 cp -R "$APP_BUNDLE" "$DMG_TEMP/"
 ln -s /Applications "$DMG_TEMP/Applications"
-rm -f "$DMG_FILE"
+rm -f "$DMG_VERSIONED" "$DMG_FILE"
 
-if hdiutil create -volname "${APP_DISPLAY_NAME}" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_FILE" > /dev/null 2>&1; then
-    echo "  ✅ DMG created at: ${DMG_FILE}"
+if hdiutil create -volname "${APP_DISPLAY_NAME}" -srcfolder "$DMG_TEMP" -ov -format UDZO "$DMG_VERSIONED" > /dev/null 2>&1; then
+    cp -f "$DMG_VERSIONED" "$DMG_FILE"
+    echo "  ✅ DMG created at: ${DMG_VERSIONED}"
 else
-    echo "  ℹ️ DMG creation skipped or not permitted in current sandbox. You can launch or copy ${APP_BUNDLE} directly."
+    echo "  ℹ️ DMG creation skipped or not permitted in current sandbox. ZIP is ready: ${ZIP_VERSIONED}"
 fi
 rm -rf "$DMG_TEMP"
 
@@ -209,10 +223,14 @@ echo ""
 echo "╔══════════════════════════════════════════╗"
 echo "║          ✅ Build Successful!             ║"
 echo "╠══════════════════════════════════════════╣"
-echo "║  App:  ${APP_BUNDLE} (${APP_SIZE})"
-if [ -f "$DMG_FILE" ]; then
-    DMG_SIZE=$(du -h "$DMG_FILE" | cut -f1)
-    echo "║  DMG:  ${DMG_FILE} (${DMG_SIZE})"
+echo "║  App:     ${APP_BUNDLE} (${APP_SIZE})"
+if [ -f "$DMG_VERSIONED" ]; then
+    DMG_SIZE=$(du -h "$DMG_VERSIONED" | cut -f1)
+    echo "║  DMG:     ${DMG_VERSIONED} (${DMG_SIZE})"
+fi
+if [ -f "$ZIP_VERSIONED" ]; then
+    ZIP_SIZE=$(du -h "$ZIP_VERSIONED" | cut -f1)
+    echo "║  ZIP:     ${ZIP_VERSIONED} (${ZIP_SIZE})"
 fi
 echo "╚══════════════════════════════════════════╝"
 echo ""

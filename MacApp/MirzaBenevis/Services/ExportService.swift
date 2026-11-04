@@ -216,7 +216,7 @@ enum ExportService {
 
         if !session.segments.isEmpty {
             for segment in session.segments {
-                let speakerLabel = "[\(segment.speaker.displayName)] (\(segment.formattedTime))"
+                let speakerLabel = "[\(segment.speakerDisplayName)] (\(segment.formattedTime))"
                 paragraphs.append(xmlParagraph(speakerLabel, bold: true, size: 20))
                 paragraphs.append(xmlParagraph(segment.text, size: 22))
             }

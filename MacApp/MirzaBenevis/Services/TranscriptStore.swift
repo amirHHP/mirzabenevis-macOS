@@ -115,6 +115,139 @@ final class TranscriptStore: ObservableObject {
         }
     }
 
+    // MARK: - Speaker & Attendee Management
+
+    func updateSegmentSpeaker(segmentID: UUID, speakerName: String, in sessionID: UUID) {
+        let trimmed = speakerName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let updateSession: (inout TranscriptionSession) -> Void = { session in
+            if let idx = session.segments.firstIndex(where: { $0.id == segmentID }) {
+                session.segments[idx].speakerCustomName = trimmed
+                if !session.attendees.contains(trimmed) && trimmed != "شما" && trimmed != "جلسه" {
+                    session.attendees.append(trimmed)
+                }
+                session.updatedAt = Date()
+            }
+        }
+
+        if currentSession?.id == sessionID {
+            var updated = currentSession!
+            updateSession(&updated)
+            currentSession = updated
+        }
+
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            updateSession(&sessions[index])
+            saveSessions()
+        }
+    }
+
+    func renameSpeakerGlobally(from oldName: String, to newName: String, in sessionID: UUID) {
+        let trimmedNew = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedNew.isEmpty else { return }
+
+        let updateSession: (inout TranscriptionSession) -> Void = { session in
+            var modified = false
+            for i in session.segments.indices {
+                if session.segments[i].speakerDisplayName == oldName {
+                    session.segments[i].speakerCustomName = trimmedNew
+                    modified = true
+                }
+            }
+            if let attIdx = session.attendees.firstIndex(of: oldName) {
+                session.attendees[attIdx] = trimmedNew
+            } else if !session.attendees.contains(trimmedNew) && trimmedNew != "شما" && trimmedNew != "جلسه" {
+                session.attendees.append(trimmedNew)
+            }
+            if modified {
+                session.updatedAt = Date()
+            }
+        }
+
+        if currentSession?.id == sessionID {
+            var updated = currentSession!
+            updateSession(&updated)
+            currentSession = updated
+        }
+
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            updateSession(&sessions[index])
+            saveSessions()
+        }
+    }
+
+    func addAttendee(_ name: String, to sessionID: UUID) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let updateSession: (inout TranscriptionSession) -> Void = { session in
+            if !session.attendees.contains(trimmed) {
+                session.attendees.append(trimmed)
+                session.updatedAt = Date()
+            }
+        }
+
+        if currentSession?.id == sessionID {
+            var updated = currentSession!
+            updateSession(&updated)
+            currentSession = updated
+        }
+
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            updateSession(&sessions[index])
+            saveSessions()
+        }
+    }
+
+    func removeAttendee(_ name: String, from sessionID: UUID) {
+        let updateSession: (inout TranscriptionSession) -> Void = { session in
+            session.attendees.removeAll { $0 == name }
+            session.updatedAt = Date()
+        }
+
+        if currentSession?.id == sessionID {
+            var updated = currentSession!
+            updateSession(&updated)
+            currentSession = updated
+        }
+
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            updateSession(&sessions[index])
+            saveSessions()
+        }
+    }
+
+    func applyDiarization(assignments: [UUID: String], to sessionID: UUID) {
+        guard !assignments.isEmpty else { return }
+
+        let updateSession: (inout TranscriptionSession) -> Void = { session in
+            for i in session.segments.indices {
+                if let name = assignments[session.segments[i].id] {
+                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        session.segments[i].speakerCustomName = trimmed
+                        if !session.attendees.contains(trimmed) && trimmed != "شما" && trimmed != "جلسه" {
+                            session.attendees.append(trimmed)
+                        }
+                    }
+                }
+            }
+            session.updatedAt = Date()
+        }
+
+        if currentSession?.id == sessionID {
+            var updated = currentSession!
+            updateSession(&updated)
+            currentSession = updated
+        }
+
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            updateSession(&sessions[index])
+            saveSessions()
+        }
+    }
+
     func deleteSession(_ session: TranscriptionSession) {
         sessions.removeAll { $0.id == session.id }
         if currentSession?.id == session.id {

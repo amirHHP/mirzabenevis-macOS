@@ -6,6 +6,18 @@ enum AppSettings {
     private static let useGPUKey = "mirza.useGPU"
     private static let geminiCustomHostKey = "mirza.geminiCustomHost"
     private static let selectedLanguageKey = "mirza.selectedLanguage"
+    private static let userNameKey = "mirza.userName"
+
+    static var userName: String {
+        get {
+            let val = UserDefaults.standard.string(forKey: userNameKey) ?? ""
+            let trimmed = val.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? "شما" : trimmed
+        }
+        set {
+            UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: userNameKey)
+        }
+    }
 
     static var selectedLanguage: String? {
         get {

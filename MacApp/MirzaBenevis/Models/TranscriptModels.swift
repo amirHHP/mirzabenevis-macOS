@@ -72,6 +72,7 @@ struct TranscriptWord: Identifiable, Codable, Hashable {
 struct TranscriptSegment: Identifiable, Codable, Hashable {
     let id: UUID
     var speaker: SpeakerType
+    var speakerCustomName: String?
     var text: String
     var start: Double
     var end: Double
@@ -81,6 +82,7 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
     init(
         id: UUID = UUID(),
         speaker: SpeakerType = .unknown,
+        speakerCustomName: String? = nil,
         text: String,
         start: Double,
         end: Double,
@@ -89,11 +91,34 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
     ) {
         self.id = id
         self.speaker = speaker
+        self.speakerCustomName = speakerCustomName
         self.text = text
         self.start = start
         self.end = end
         self.words = words
         self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        speaker = try container.decodeIfPresent(SpeakerType.self, forKey: .speaker) ?? .unknown
+        speakerCustomName = try container.decodeIfPresent(String.self, forKey: .speakerCustomName)
+        text = try container.decodeIfPresent(String.self, forKey: .text) ?? ""
+        start = try container.decodeIfPresent(Double.self, forKey: .start) ?? 0
+        end = try container.decodeIfPresent(Double.self, forKey: .end) ?? 0
+        words = try container.decodeIfPresent([TranscriptWord].self, forKey: .words) ?? []
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+    }
+
+    var speakerDisplayName: String {
+        if let custom = speakerCustomName, !custom.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return custom
+        }
+        if speaker == .user {
+            return AppSettings.userName
+        }
+        return speaker.displayName
     }
 
     var formattedTime: String {
@@ -129,6 +154,7 @@ struct TranscriptionSession: Identifiable, Codable, Hashable {
     var words: [TranscriptWord]
     var segments: [TranscriptSegment]
     var actionItems: [MeetingActionItem]
+    var attendees: [String]
     var summary: String?
     var createdAt: Date
     var updatedAt: Date
@@ -142,6 +168,7 @@ struct TranscriptionSession: Identifiable, Codable, Hashable {
         words: [TranscriptWord] = [],
         segments: [TranscriptSegment] = [],
         actionItems: [MeetingActionItem] = [],
+        attendees: [String] = [],
         summary: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
@@ -154,6 +181,7 @@ struct TranscriptionSession: Identifiable, Codable, Hashable {
         self.words = words
         self.segments = segments
         self.actionItems = actionItems
+        self.attendees = attendees
         self.summary = summary
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -169,6 +197,7 @@ struct TranscriptionSession: Identifiable, Codable, Hashable {
         words = try container.decodeIfPresent([TranscriptWord].self, forKey: .words) ?? []
         segments = try container.decodeIfPresent([TranscriptSegment].self, forKey: .segments) ?? []
         actionItems = try container.decodeIfPresent([MeetingActionItem].self, forKey: .actionItems) ?? []
+        attendees = try container.decodeIfPresent([String].self, forKey: .attendees) ?? []
         summary = try container.decodeIfPresent(String.self, forKey: .summary)
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
@@ -209,8 +238,28 @@ struct TranscriptionSession: Identifiable, Codable, Hashable {
             return fullText
         }
         return segments.map { seg in
-            "[\(seg.speaker.displayName)] (\(seg.formattedTime)): \(seg.text)"
+            "[\(seg.speakerDisplayName)] (\(seg.formattedTime)): \(seg.text)"
         }.joined(separator: "\n\n")
+    }
+
+    var distinctSpeakers: [String] {
+        var names = Set<String>()
+        for seg in segments {
+            let name = seg.speakerDisplayName
+            if !name.isEmpty {
+                names.insert(name)
+            }
+        }
+        for att in attendees {
+            let trimmed = att.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                names.insert(trimmed)
+            }
+        }
+        if names.isEmpty {
+            return [AppSettings.userName, "جلسه"]
+        }
+        return Array(names).sorted()
     }
 
     var wordCount: Int {

@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var saved = false
     @State private var selectedModel = AppSettings.whisperModelSize
     @State private var useGPU = AppSettings.useGPU
+    @State private var userName = AppSettings.userName
 
     var body: some View {
         Form {
@@ -142,6 +143,22 @@ struct SettingsView: View {
                 }
 
                 Text("در حالت «میک + سیستم»، برنامه با مقایسه انرژی صداها گویندگان را به صورت «شما» و «جلسه» تفکیک می‌کند.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("مشخصات گوینده پیش‌فرض") {
+                HStack {
+                    Text("نام شما (میکروفون):")
+                        .font(.body)
+                    TextField("مثلاً: علی یا شما", text: $userName)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: userName) { _, v in
+                            AppSettings.userName = v
+                        }
+                }
+
+                Text("این نام هنگام ضبط مکالمه با میکروفون، به عنوان برچسب گوینده به جای «شما» استفاده می‌شود.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
