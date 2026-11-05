@@ -4,12 +4,14 @@ struct MenuBarPopoverView: View {
     @ObservedObject var coordinator: RecordingCoordinator
     @EnvironmentObject var transcriptStore: TranscriptStore
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var updateManager: UpdateManager
     @StateObject private var calendarService = CalendarService.shared
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
+            updateNotice
             calendarNotice
             controls
             Divider()
@@ -21,6 +23,7 @@ struct MenuBarPopoverView: View {
         .task {
             await coordinator.prepareModel()
             calendarService.refreshEvents()
+            await updateManager.checkForUpdates(isUserInitiated: false)
         }
     }
 
@@ -42,6 +45,33 @@ struct MenuBarPopoverView: View {
             if coordinator.whisperEngine.isProcessing {
                 ProgressView().controlSize(.small)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var updateNotice: some View {
+        if updateManager.isUpdateAvailable {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.down.circle.fill")
+                    .foregroundStyle(.blue)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("نسخه جدید \(updateManager.latestVersion ?? "") موجود است")
+                        .font(.caption2)
+                        .bold()
+                    Text("برای دانلود نسخه جدید کلیک کنید")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("دریافت") {
+                    updateManager.openDownload()
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.mini)
+            }
+            .padding(8)
+            .background(Color.blue.opacity(0.1))
+            .cornerRadius(8)
         }
     }
 

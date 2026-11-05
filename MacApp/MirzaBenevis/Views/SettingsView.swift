@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var modelManager: ModelManager
+    @EnvironmentObject var updateManager: UpdateManager
     @Environment(\.dismiss) private var dismiss
 
     @State private var geminiAPIKey = KeychainHelper.loadGeminiAPIKey() ?? ""
@@ -191,6 +192,62 @@ struct SettingsView: View {
                 Text("برای سرعت بیشتر encoder، مدل Core ML را از README پروژه whisper.cpp بسازید و در پوشه models قرار دهید.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("به‌روزرسانی برنامه (Updates)") {
+                HStack {
+                    Text("نسخه فعلی برنامه:")
+                    Spacer()
+                    Text("v\(updateManager.currentVersion)")
+                        .foregroundStyle(.secondary)
+                }
+
+                if updateManager.isChecking {
+                    HStack {
+                        ProgressView().controlSize(.small)
+                        Text("در حال بررسی نسخه جدید در گیت‌هاب...")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if updateManager.isUpdateAvailable {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .foregroundStyle(.green)
+                            Text("نسخه جدید \(updateManager.latestVersion ?? "") موجود است!")
+                                .font(.headline)
+                        }
+
+                        if let notes = updateManager.releaseNotes, !notes.isEmpty {
+                            Text(notes)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(5)
+                        }
+
+                        Button {
+                            updateManager.openDownload()
+                        } label: {
+                            Label("دانلود نسخه جدید (DMG)", systemImage: "arrow.down.doc")
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(.vertical, 4)
+                } else {
+                    HStack {
+                        Button("بررسی نسخه جدید") {
+                            Task {
+                                await updateManager.checkForUpdates(isUserInitiated: true)
+                            }
+                        }
+                        Spacer()
+                        if let msg = updateManager.checkStatusMessage {
+                            Text(msg)
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
         }
         .formStyle(.grouped)

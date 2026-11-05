@@ -23,14 +23,15 @@
 		B000100D /* RecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100D /* RecordingCoordinator.swift */; };
 		B000100E /* SystemAudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100E /* SystemAudioCaptureService.swift */; };
 		B000100F /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100F /* TranscriptStore.swift */; };
-		B0001010 /* VADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001010 /* VADDetector.swift */; };
-		B0001011 /* VoiceEmbeddingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001011 /* VoiceEmbeddingEngine.swift */; };
-		B0001012 /* WhisperEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001012 /* WhisperEngine.swift */; };
-		B0001013 /* MenuBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001013 /* MenuBarPopoverView.swift */; };
-		B0001014 /* SessionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001014 /* SessionsListView.swift */; };
-		B0001015 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001015 /* SettingsView.swift */; };
-		B0001016 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001016 /* TranscriptView.swift */; };
-		B0001017 /* LibWhisper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001017 /* LibWhisper.swift */; };
+		B0001010 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001010 /* UpdateManager.swift */; };
+		B0001011 /* VADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001011 /* VADDetector.swift */; };
+		B0001012 /* VoiceEmbeddingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001012 /* VoiceEmbeddingEngine.swift */; };
+		B0001013 /* WhisperEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001013 /* WhisperEngine.swift */; };
+		B0001014 /* MenuBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001014 /* MenuBarPopoverView.swift */; };
+		B0001015 /* SessionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001015 /* SessionsListView.swift */; };
+		B0001016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001016 /* SettingsView.swift */; };
+		B0001017 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001017 /* TranscriptView.swift */; };
+		B0001018 /* LibWhisper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001018 /* LibWhisper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,14 +54,15 @@
 		A000100D /* RecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/RecordingCoordinator.swift"; sourceTree = "<group>"; };
 		A000100E /* SystemAudioCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/SystemAudioCaptureService.swift"; sourceTree = "<group>"; };
 		A000100F /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/TranscriptStore.swift"; sourceTree = "<group>"; };
-		A0001010 /* VADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VADDetector.swift"; sourceTree = "<group>"; };
-		A0001011 /* VoiceEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VoiceEmbeddingEngine.swift"; sourceTree = "<group>"; };
-		A0001012 /* WhisperEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/WhisperEngine.swift"; sourceTree = "<group>"; };
-		A0001013 /* MenuBarPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/MenuBarPopoverView.swift"; sourceTree = "<group>"; };
-		A0001014 /* SessionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionsListView.swift"; sourceTree = "<group>"; };
-		A0001015 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SettingsView.swift"; sourceTree = "<group>"; };
-		A0001016 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/TranscriptView.swift"; sourceTree = "<group>"; };
-		A0001017 /* LibWhisper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Whisper/LibWhisper.swift"; sourceTree = "<group>"; };
+		A0001010 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/UpdateManager.swift"; sourceTree = "<group>"; };
+		A0001011 /* VADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VADDetector.swift"; sourceTree = "<group>"; };
+		A0001012 /* VoiceEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VoiceEmbeddingEngine.swift"; sourceTree = "<group>"; };
+		A0001013 /* WhisperEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/WhisperEngine.swift"; sourceTree = "<group>"; };
+		A0001014 /* MenuBarPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/MenuBarPopoverView.swift"; sourceTree = "<group>"; };
+		A0001015 /* SessionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionsListView.swift"; sourceTree = "<group>"; };
+		A0001016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SettingsView.swift"; sourceTree = "<group>"; };
+		A0001017 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/TranscriptView.swift"; sourceTree = "<group>"; };
+		A0001018 /* LibWhisper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Whisper/LibWhisper.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -180,14 +182,15 @@
 				B000100D /* RecordingCoordinator.swift in Sources */,
 				B000100E /* SystemAudioCaptureService.swift in Sources */,
 				B000100F /* TranscriptStore.swift in Sources */,
-				B0001010 /* VADDetector.swift in Sources */,
-				B0001011 /* VoiceEmbeddingEngine.swift in Sources */,
-				B0001012 /* WhisperEngine.swift in Sources */,
-				B0001013 /* MenuBarPopoverView.swift in Sources */,
-				B0001014 /* SessionsListView.swift in Sources */,
-				B0001015 /* SettingsView.swift in Sources */,
-				B0001016 /* TranscriptView.swift in Sources */,
-				B0001017 /* LibWhisper.swift in Sources */,
+				B0001010 /* UpdateManager.swift in Sources */,
+				B0001011 /* VADDetector.swift in Sources */,
+				B0001012 /* VoiceEmbeddingEngine.swift in Sources */,
+				B0001013 /* WhisperEngine.swift in Sources */,
+				B0001014 /* MenuBarPopoverView.swift in Sources */,
+				B0001015 /* SessionsListView.swift in Sources */,
+				B0001016 /* SettingsView.swift in Sources */,
+				B0001017 /* TranscriptView.swift in Sources */,
+				B0001018 /* LibWhisper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
