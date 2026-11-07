@@ -6,7 +6,29 @@ enum AppSettings {
     private static let useGPUKey = "mirza.useGPU"
     private static let geminiCustomHostKey = "mirza.geminiCustomHost"
     private static let selectedLanguageKey = "mirza.selectedLanguage"
+    private static let appLanguageKey = "mirza.appLanguage"
     private static let userNameKey = "mirza.userName"
+    private static let geminiModelKey = "mirza.geminiModel"
+
+    static var geminiModel: String {
+        get {
+            let val = UserDefaults.standard.string(forKey: geminiModelKey) ?? "gemini-2.0-flash"
+            return val.isEmpty ? "gemini-2.0-flash" : val
+        }
+        set {
+            UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: geminiModelKey)
+        }
+    }
+
+    static var appLanguage: AppLanguage {
+        get {
+            let raw = UserDefaults.standard.string(forKey: appLanguageKey) ?? AppLanguage.english.rawValue
+            return AppLanguage(rawValue: raw) ?? .english
+        }
+        set {
+            UserDefaults.standard.set(newValue.rawValue, forKey: appLanguageKey)
+        }
+    }
 
     static var userName: String {
         get {
@@ -40,8 +62,11 @@ enum AppSettings {
 
     static var whisperModelSize: WhisperModelSize {
         get {
-            let raw = UserDefaults.standard.string(forKey: whisperModelKey) ?? WhisperModelSize.base.rawValue
-            return WhisperModelSize(rawValue: raw) ?? .base
+            let raw = UserDefaults.standard.string(forKey: whisperModelKey) ?? WhisperModelSize.persianTurbo.rawValue
+            if raw == "tiny" || raw == "base" {
+                return .persianTurbo
+            }
+            return WhisperModelSize(rawValue: raw) ?? .persianTurbo
         }
         set {
             UserDefaults.standard.set(newValue.rawValue, forKey: whisperModelKey)

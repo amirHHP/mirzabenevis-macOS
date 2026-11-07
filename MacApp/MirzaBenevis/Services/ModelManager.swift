@@ -1,48 +1,85 @@
 import Foundation
+import AppKit
 
 enum WhisperModelSize: String, CaseIterable, Identifiable, Codable {
-    case tiny
-    case base
-    case small
-    case medium
-    case turbo
+    case persianTurbo = "persian-turbo"
+    case persianTurboQ5 = "persian-turbo-q5"
+    case turbo = "turbo"
+    case largeV3 = "large-v3"
+    case medium = "medium"
+    case small = "small"
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .tiny: return "Tiny (~75 MB) — سریع"
-        case .base: return "Base (~142 MB) — متعادل"
-        case .small: return "Small (~466 MB) — دقیق"
-        case .medium: return "Medium (~1.5 GB) — بسیار دقیق"
-        case .turbo: return "Large v3 Turbo (~1.6 GB) — بهترین کیفیت فارسی (دقیق و بهینه)"
+        case .persianTurbo:
+            return "Persian Turbo Givia (~1.6 GB) — فاین‌تیون مکالمه و عامیانه فارسی (پیشنهادی)"
+        case .persianTurboQ5:
+            return "Persian Turbo Q5 (~560 MB) — فاین‌تیون فارسی سبک و فشرده"
+        case .turbo:
+            return "Large v3 Turbo (~1.6 GB) — رسمی OpenAI (سریع و بهینه)"
+        case .largeV3:
+            return "Large v3 (~3.1 GB) — حداکثر دقت OpenAI (کامل‌ترین مدل چندزبانه)"
+        case .medium:
+            return "Medium (~1.5 GB) — چندزبانه بسیار دقیق"
+        case .small:
+            return "Small (~466 MB) — استاندارد سبک و سریع"
         }
     }
 
     var downloadFileName: String {
         switch self {
-        case .turbo: return "ggml-large-v3-turbo.bin"
-        default: return "ggml-\(rawValue).bin"
+        case .persianTurbo:
+            return "ggml-persian-v3-turbo.bin"
+        case .persianTurboQ5:
+            return "ggml-large-v3-turbo-persian-q5_0.bin"
+        case .turbo:
+            return "ggml-large-v3-turbo.bin"
+        case .largeV3:
+            return "ggml-large-v3.bin"
+        default:
+            return "ggml-\(rawValue).bin"
         }
     }
 
     /// Multiple mirror URLs – tried in order until one works.
     var downloadURLs: [URL] {
-        [
-            // Primary: Hugging Face
-            URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(downloadFileName)")!,
-            // Fallback: GitHub releases (ggerganov/whisper.cpp)
-            URL(string: "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/\(downloadFileName)")!,
-        ]
+        switch self {
+        case .persianTurbo:
+            return [
+                URL(string: "https://huggingface.co/givia/whisper-large-v3-turbo-persian/resolve/main/ggml-persian-v3-turbo.bin")!
+            ]
+        case .persianTurboQ5:
+            return [
+                URL(string: "https://huggingface.co/pejmans21/whisper-large-v3-turbo-persian-ggml/resolve/main/ggml-large-v3-turbo-persian-q5_0.bin")!
+            ]
+        case .largeV3:
+            return [
+                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin")!,
+                URL(string: "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/ggml-large-v3.bin")!,
+            ]
+        case .turbo:
+            return [
+                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin")!,
+                URL(string: "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/ggml-large-v3-turbo.bin")!,
+            ]
+        default:
+            return [
+                URL(string: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/\(downloadFileName)")!,
+                URL(string: "https://github.com/ggerganov/whisper.cpp/releases/download/v1.7.4/\(downloadFileName)")!,
+            ]
+        }
     }
 
     var approximateSizeMB: Int {
         switch self {
-        case .tiny: return 75
-        case .base: return 142
-        case .small: return 466
-        case .medium: return 1500
+        case .persianTurbo: return 1600
+        case .persianTurboQ5: return 560
         case .turbo: return 1600
+        case .largeV3: return 3100
+        case .medium: return 1500
+        case .small: return 466
         }
     }
 }
@@ -99,6 +136,31 @@ final class ModelManager: ObservableObject {
         modelsDirectory.appendingPathComponent(size.downloadFileName)
     }
 
+    func resumeDataURL(for size: WhisperModelSize) -> URL {
+        modelsDirectory.appendingPathComponent("\(size.downloadFileName).resumedata")
+    }
+
+    func coreMLModelPath(for size: WhisperModelSize) -> URL {
+        let base = size.downloadFileName.replacingOccurrences(of: ".bin", with: "")
+        return modelsDirectory.appendingPathComponent("\(base)-encoder.mlmodelc")
+    }
+
+    func isCoreMLAvailable(for size: WhisperModelSize) -> Bool {
+        let path = coreMLModelPath(for: size).path
+        if FileManager.default.fileExists(atPath: path) {
+            return true
+        }
+        let base = size.downloadFileName.replacingOccurrences(of: ".bin", with: "")
+        if Bundle.main.url(forResource: "\(base)-encoder", withExtension: "mlmodelc") != nil {
+            return true
+        }
+        return false
+    }
+
+    func openModelsDirectory() {
+        NSWorkspace.shared.open(modelsDirectory)
+    }
+
     func isModelDownloaded(_ size: WhisperModelSize) -> Bool {
         if FileManager.default.fileExists(atPath: modelPath(for: size).path) {
             return true
@@ -121,9 +183,20 @@ final class ModelManager: ObservableObject {
         return path
     }
 
-    /// Cancel the in-progress download.
+    /// Cancel the in-progress download safely, saving resume data if available.
     func cancelDownload() {
-        activeDelegate?.cancel()
+        if let currentSize = currentlyDownloadingSize {
+            let resumePath = resumeDataURL(for: currentSize)
+            let sizeName = currentSize.rawValue
+            activeDelegate?.cancel { data in
+                if let data, !data.isEmpty {
+                    try? data.write(to: resumePath, options: .atomic)
+                    print("[ModelManager] ✅ Saved \(data.count) bytes of resume data for \(sizeName)")
+                }
+            }
+        } else {
+            activeDelegate?.cancel()
+        }
         activeDownloadTask?.cancel()
         activeDownloadTask = nil
         activeDelegate = nil
@@ -185,7 +258,7 @@ final class ModelManager: ObservableObject {
             downloadSpeed = ""
 
             do {
-                try await downloadFromURL(url, to: destination, modelName: size.downloadFileName)
+                try await downloadFromURL(url, to: destination, modelName: size.downloadFileName, size: size)
                 // Success!
                 downloadProgress = 1
                 statusMessage = "✅ مدل دانلود شد"
@@ -198,6 +271,7 @@ final class ModelManager: ObservableObject {
             } catch {
                 mirrorErrors.append(error)
                 print("[ModelManager] Mirror \(mirrorName) failed: \(error.localizedDescription)")
+                try? FileManager.default.removeItem(at: resumeDataURL(for: size))
                 if index < size.downloadURLs.count - 1 {
                     statusMessage = "آدرس \(mirrorName) ناموفق، تلاش بعدی..."
                     try? await Task.sleep(for: .seconds(1))
@@ -213,33 +287,34 @@ final class ModelManager: ObservableObject {
 
     // MARK: - Private download implementation
 
-    private func downloadFromURL(_ url: URL, to destination: URL, modelName: String) async throws {
+    private func downloadFromURL(_ url: URL, to destination: URL, modelName: String, size: WhisperModelSize) async throws {
+        let resumeURL = resumeDataURL(for: size)
+        let resumeData = try? Data(contentsOf: resumeURL)
+
         // Build a URLSession with a delegate for progress tracking
         let delegate = DownloadDelegate()
         activeDelegate = delegate
 
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = 30       // 30s for initial response
-        config.timeoutIntervalForResource = 3600    // 1 hour max for the whole file
+        config.timeoutIntervalForResource = 7200    // 2 hours max for large models
         config.waitsForConnectivity = true
         config.httpMaximumConnectionsPerHost = 1
 
         let session = URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
         defer { session.invalidateAndCancel() }
 
-        var request = URLRequest(url: url)
-        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) MirzaBenevis/1.0", forHTTPHeaderField: "User-Agent")
-
-        // Check for partial download to support resume
-        let partialURL = destination.appendingPathExtension("partial")
-        if FileManager.default.fileExists(atPath: partialURL.path),
-           let attrs = try? FileManager.default.attributesOfItem(atPath: partialURL.path),
-           let fileSize = attrs[.size] as? Int64, fileSize > 0 {
-            request.setValue("bytes=\(fileSize)-", forHTTPHeaderField: "Range")
-            statusMessage = "ادامه دانلود از \(ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file))..."
+        let downloadTask: URLSessionDownloadTask
+        if let data = resumeData, !data.isEmpty {
+            print("[ModelManager] Resuming download with \(data.count) bytes of resume data")
+            statusMessage = "ادامه دانلود قبلی..."
+            downloadTask = session.downloadTask(withResumeData: data)
+        } else {
+            var request = URLRequest(url: url)
+            request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) MirzaBenevis/1.0", forHTTPHeaderField: "User-Agent")
+            downloadTask = session.downloadTask(with: request)
         }
 
-        let downloadTask = session.downloadTask(with: request)
         delegate.startTask(downloadTask)
 
         // Observe progress on main actor
@@ -268,15 +343,20 @@ final class ModelManager: ObservableObject {
                 }
             }
 
+            // Validate that the downloaded file is a real model file (minimum 10MB)
+            if let attrs = try? FileManager.default.attributesOfItem(atPath: tempURL.path),
+               let fileSize = attrs[.size] as? Int64, fileSize < 10_000_000 {
+                try? FileManager.default.removeItem(at: tempURL)
+                throw ModelDownloadError.invalidResponse(statusCode: delegate.httpResponse?.statusCode ?? 400)
+            }
+
             do {
-                // Remove old file if exists
+                // Remove old model if exists
                 if FileManager.default.fileExists(atPath: destination.path) {
                     try FileManager.default.removeItem(at: destination)
                 }
-                // Remove partial if exists
-                if FileManager.default.fileExists(atPath: partialURL.path) {
-                    try FileManager.default.removeItem(at: partialURL)
-                }
+                // Clean up resume data file upon successful completion
+                try? FileManager.default.removeItem(at: resumeURL)
                 try FileManager.default.moveItem(at: tempURL, to: destination)
             } catch {
                 throw ModelDownloadError.fileOperationFailed(error)
@@ -286,6 +366,8 @@ final class ModelManager: ObservableObject {
             if (error as NSError).code == NSURLErrorCancelled {
                 throw ModelDownloadError.cancelled
             }
+            // If resuming failed because resume data was expired or invalid, delete it so next try starts fresh
+            try? FileManager.default.removeItem(at: resumeURL)
             throw error
         }
     }
@@ -328,11 +410,15 @@ private final class DownloadDelegate: NSObject, URLSessionDownloadDelegate, @unc
         task.resume()
     }
 
-    func cancel() {
+    func cancel(onProduceResumeData: (@Sendable (Data?) -> Void)? = nil) {
         lock.lock()
         let task = downloadTask
         lock.unlock()
-        task?.cancel()
+        if let onProduceResumeData {
+            task?.cancel(byProducingResumeData: onProduceResumeData)
+        } else {
+            task?.cancel()
+        }
     }
 
     func waitForCompletion() async -> Result<URL, Error> {

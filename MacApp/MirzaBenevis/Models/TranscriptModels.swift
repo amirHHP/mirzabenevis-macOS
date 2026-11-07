@@ -6,18 +6,40 @@ enum SpeakerType: String, Codable, Hashable, CaseIterable {
     case unknown   // منبع ترکیبی یا نامشخص
 
     var displayName: String {
-        switch self {
-        case .user: return "شما"
-        case .system: return "جلسه / طرف مقابل"
-        case .unknown: return "گوینده"
+        localizedName(for: AppSettings.appLanguage)
+    }
+
+    func localizedName(for lang: AppLanguage = AppSettings.appLanguage) -> String {
+        switch lang {
+        case .english:
+            switch self {
+            case .user: return "You"
+            case .system: return "Meeting / Others"
+            case .unknown: return "Speaker"
+            }
+        case .persian:
+            switch self {
+            case .user: return "شما"
+            case .system: return "جلسه / طرف مقابل"
+            case .unknown: return "گوینده"
+            }
         }
     }
 
     var shortLabel: String {
-        switch self {
-        case .user: return "شما"
-        case .system: return "جلسه"
-        case .unknown: return "صدا"
+        switch AppSettings.appLanguage {
+        case .english:
+            switch self {
+            case .user: return "You"
+            case .system: return "Meeting"
+            case .unknown: return "Audio"
+            }
+        case .persian:
+            switch self {
+            case .user: return "شما"
+            case .system: return "جلسه"
+            case .unknown: return "صدا"
+            }
         }
     }
 
@@ -120,9 +142,13 @@ struct TranscriptSegment: Identifiable, Codable, Hashable {
             return custom
         }
         if speaker == .user {
-            return AppSettings.userName
+            let user = AppSettings.userName
+            if user == "شما" && AppSettings.appLanguage == .english {
+                return "You"
+            }
+            return user
         }
-        return speaker.displayName
+        return speaker.localizedName(for: AppSettings.appLanguage)
     }
 
     var formattedTime: String {

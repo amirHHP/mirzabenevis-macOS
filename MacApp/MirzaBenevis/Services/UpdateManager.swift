@@ -9,7 +9,9 @@ public final class UpdateManager: ObservableObject {
 
     // MARK: - Configuration
     private let repoOwner = "amirHHP"
-    private let repoName = "mirzabenevis-recorder3"
+    private let repoName = "mirzabenevis-macOS"
+    private let lastCheckKey = "mirza.lastUpdateCheckDate"
+    private let backgroundCheckInterval: TimeInterval = 86400 // 24 hours
 
     // MARK: - Published State
     @Published public var isChecking: Bool = false
@@ -26,11 +28,21 @@ public final class UpdateManager: ObservableObject {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
     }
 
-    private init() {}
+    private init() {
+        lastCheckedDate = UserDefaults.standard.object(forKey: lastCheckKey) as? Date
+    }
 
     // MARK: - Check for Updates
     public func checkForUpdates(isUserInitiated: Bool = false) async {
         guard !isChecking else { return }
+
+        // Throttle automatic background checks to avoid GitHub API rate limiting
+        if !isUserInitiated {
+            if let last = UserDefaults.standard.object(forKey: lastCheckKey) as? Date,
+               Date().timeIntervalSince(last) < backgroundCheckInterval {
+                return
+            }
+        }
 
         isChecking = true
         if isUserInitiated {
@@ -39,7 +51,9 @@ public final class UpdateManager: ObservableObject {
 
         defer {
             isChecking = false
-            lastCheckedDate = Date()
+            let now = Date()
+            lastCheckedDate = now
+            UserDefaults.standard.set(now, forKey: lastCheckKey)
         }
 
         guard let url = URL(string: "https://api.github.com/repos/\(repoOwner)/\(repoName)/releases/latest") else {

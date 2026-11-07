@@ -10,6 +10,38 @@ final class AudioCaptureService: ObservableObject {
 
     private let engine = AVAudioEngine()
     private let targetSampleRate: Double = 16000
+    private var configChangeObserver: NSObjectProtocol?
+
+    init() {
+        configChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.handleConfigurationChange()
+            }
+        }
+    }
+
+    deinit {
+        if let observer = configChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
+    private func handleConfigurationChange() {
+        guard isCapturing else { return }
+        print("[AudioCaptureService] ⚠️ Audio engine configuration changed (e.g. AirPods/mic routed). Re-attaching audio tap...")
+        do {
+            engine.inputNode.removeTap(onBus: 0)
+            engine.stop()
+            try setupTapAndStartEngine()
+            print("[AudioCaptureService] ✅ Re-attached audio tap successfully")
+        } catch {
+            print("[AudioCaptureService] ❌ Failed to re-attach audio tap: \(error)")
+        }
+    }
 
     func requestPermission() async -> Bool {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
@@ -28,7 +60,11 @@ final class AudioCaptureService: ObservableObject {
 
     func startCapture() throws {
         guard !isCapturing else { return }
+        try setupTapAndStartEngine()
+        isCapturing = true
+    }
 
+    private func setupTapAndStartEngine() throws {
         let inputNode = engine.inputNode
         let inputFormat = inputNode.outputFormat(forBus: 0)
 
@@ -48,7 +84,7 @@ final class AudioCaptureService: ObservableObject {
         inputNode.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
             guard let self else { return }
             let frameCount = AVAudioFrameCount(
-                Double(buffer.frameLength) * targetSampleRate / inputFormat.sampleRate
+                Double(buffer.frameLength) * self.targetSampleRate / inputFormat.sampleRate
             )
             guard frameCount > 0,
                   let convertedBuffer = AVAudioPCMBuffer(
@@ -82,7 +118,6 @@ final class AudioCaptureService: ObservableObject {
 
         engine.prepare()
         try engine.start()
-        isCapturing = true
     }
 
     func stopCapture() {

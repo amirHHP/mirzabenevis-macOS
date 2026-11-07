@@ -1,19 +1,38 @@
 import SwiftUI
+import AppKit
+
+// MARK: - String Sanitizer Helper
+
+func sanitizeTitle(_ raw: String) -> String {
+    var t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+    while t.hasPrefix("/") || t.hasPrefix("•") || t.hasPrefix("-") || t.hasPrefix("|") {
+        t = String(t.dropFirst()).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    while t.hasSuffix("/") || t.hasSuffix("•") || t.hasSuffix("-") || t.hasSuffix("|") {
+        t = String(t.dropLast()).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    return t.isEmpty ? L10n.tr(.newSession) : t
+}
+
+// MARK: - Sessions List View (Root)
 
 struct SessionsListView: View {
     @EnvironmentObject var transcriptStore: TranscriptStore
+    @ObservedObject private var langManager = LanguageManager.shared
+
     @State private var selectedSessionID: UUID?
+    @State private var searchText = ""
     @State private var geminiAPIKey = KeychainHelper.loadGeminiAPIKey() ?? ""
 
     var body: some View {
-        HSplitView {
-            sessionsList
-                .frame(minWidth: 240, idealWidth: 280)
-
-            sessionDetail
-                .frame(minWidth: 550)
+        NavigationSplitView {
+            sidebar
+                .navigationSplitViewColumnWidth(min: 260, ideal: 300, max: 380)
+        } detail: {
+            detailView
         }
-        .navigationTitle("جلسات و یادداشت‌ها")
+        .navigationTitle(L10n.tr(.sessionsTitle))
+        .environment(\.layoutDirection, langManager.layoutDirection)
         .onAppear {
             geminiAPIKey = KeychainHelper.loadGeminiAPIKey() ?? ""
             if selectedSessionID == nil {
@@ -22,621 +41,438 @@ struct SessionsListView: View {
         }
     }
 
-    private var sessionsList: some View {
-        List(selection: $selectedSessionID) {
-            ForEach(transcriptStore.sessions) { session in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(session.title)
-                            .font(.headline)
-                            .lineLimit(1)
-                        Spacer()
-                        if session.summary != nil {
-                            Image(systemName: "sparkles")
-                                .font(.caption2)
-                                .foregroundStyle(.purple)
-                        }
-                    }
+    // MARK: - Sidebar
 
-                    if let calEvent = session.calendarEventTitle {
-                        HStack(spacing: 4) {
-                            Image(systemName: "calendar")
-                                .font(.system(size: 9))
-                            Text(calEvent)
-                                .font(.system(size: 10))
-                                .lineLimit(1)
-                        }
-                        .foregroundStyle(.blue)
-                    }
-
-                    HStack {
-                        Text("\(session.wordCount) کلمه")
-                        Text("•")
-                        Text(session.createdAt, style: .date)
-                    }
-                    .font(.caption2)
+    private var sidebar: some View {
+        VStack(spacing: 0) {
+            // Search field
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass")
                     .foregroundStyle(.secondary)
+                    .font(.system(size: 13))
+
+                TextField(L10n.tr(.searchPlaceholder), text: $searchText)
+                    .textFieldStyle(.plain)
+                    .font(.callout)
+
+                if !searchText.isEmpty {
+                    Button {
+                        searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                            .font(.system(size: 12))
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.vertical, 2)
-                .tag(session.id)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 7)
+            .background(Color(nsColor: .controlBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.secondary.opacity(0.15), lineWidth: 0.5)
+            )
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            // Sessions List
+            if filteredSessions.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer()
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.system(size: 32))
+                        .foregroundStyle(.tertiary)
+                    Text(L10n.tr(.noSessionsFound))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(selection: $selectedSessionID) {
+                    ForEach(filteredSessions) { session in
+                        SessionRowView(
+                            session: session,
+                            onDelete: {
+                                transcriptStore.deleteSession(session)
+                                if selectedSessionID == session.id {
+                                    selectedSessionID = transcriptStore.sessions.first?.id
+                                }
+                            }
+                        )
+                        .tag(session.id)
+                    }
+                }
+                .listStyle(.sidebar)
+            }
+
+            // Footer with count
+            Divider()
+            HStack {
+                Text("\(filteredSessions.count) \(L10n.tr(.sessionsTitle).lowercased())")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 6)
+        }
+    }
+
+    private var filteredSessions: [TranscriptionSession] {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return transcriptStore.sessions
+        }
+        return transcriptStore.sessions.filter { session in
+            session.title.localizedCaseInsensitiveContains(trimmed) ||
+            session.fullText.localizedCaseInsensitiveContains(trimmed) ||
+            session.attendees.contains(where: { $0.localizedCaseInsensitiveContains(trimmed) }) ||
+            (session.calendarEventTitle?.localizedCaseInsensitiveContains(trimmed) ?? false)
+        }
+    }
+
+    // MARK: - Detail View
+
+    @ViewBuilder
+    private var detailView: some View {
+        if let sessionID = selectedSessionID,
+           let session = transcriptStore.sessions.first(where: { $0.id == sessionID }) {
+            SessionDetailView(session: session, geminiAPIKey: geminiAPIKey)
+                .id(session.id)
+        } else {
+            ContentUnavailableView {
+                Label(L10n.tr(.noSessionSelected), systemImage: "doc.text")
+                    .font(.title2)
+            } description: {
+                Text(L10n.tr(.noSessionDescription))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+// MARK: - Session Row View (Sidebar)
+
+struct SessionRowView: View {
+    let session: TranscriptionSession
+    let onDelete: () -> Void
+
+    @ObservedObject private var langManager = LanguageManager.shared
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Title & Badges
+            HStack(spacing: 6) {
+                Text(sanitizeTitle(session.title))
+                    .font(.headline)
+                    .lineLimit(1)
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                if session.summary != nil {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.purple)
+                }
+
+                if !session.actionItems.isEmpty {
+                    Image(systemName: "checklist")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(Color.blue)
+                }
+
+                if session.audioFileURL != nil {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // Calendar Event Pill (if any)
+            if let calEvent = session.calendarEventTitle, !calEvent.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "calendar")
+                        .font(.system(size: 9))
+                    Text(calEvent)
+                        .font(.system(size: 10, weight: .medium))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.accentColor)
+            }
+
+            // Date & Word Count
+            HStack(spacing: 6) {
+                Text(formatDate(session.createdAt))
+                Text("•")
+                Text("\(session.wordCount) \(L10n.tr(.words))")
+            }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+
+            // Preview snippet
+            if !previewSnippet.isEmpty {
+                Text(previewSnippet)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+        .contextMenu {
+            Button {
+                exportFormat(.pdf)
+            } label: {
+                Label(L10n.tr(.exportPDF), systemImage: "doc.richtext")
+            }
+
+            Button {
+                exportFormat(.docx)
+            } label: {
+                Label(L10n.tr(.exportWord), systemImage: "doc.text")
+            }
+
+            Button {
+                copyTranscript()
+            } label: {
+                Label(L10n.tr(.copyTranscript), systemImage: "doc.on.doc")
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label(L10n.tr(.delete), systemImage: "trash")
             }
         }
     }
 
-    @ViewBuilder
-    private var sessionDetail: some View {
-        if let sessionID = selectedSessionID,
-           let session = transcriptStore.sessions.first(where: { $0.id == sessionID }) {
-            SessionDetailView(session: session, geminiAPIKey: geminiAPIKey)
+    private var previewSnippet: String {
+        if let firstSeg = session.segments.first, !firstSeg.text.isEmpty {
+            return firstSeg.text
+        }
+        return session.fullText
+    }
+
+    private func formatDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        let timeFormatter = DateFormatter()
+        timeFormatter.locale = langManager.currentLanguage.locale
+        timeFormatter.timeStyle = .short
+
+        if calendar.isDateInToday(date) {
+            return "\(L10n.tr(.today)), \(timeFormatter.string(from: date))"
+        } else if calendar.isDateInYesterday(date) {
+            return "\(L10n.tr(.yesterday)), \(timeFormatter.string(from: date))"
         } else {
-            ContentUnavailableView(
-                "جلسه‌ای انتخاب نشده",
-                systemImage: "doc.text",
-                description: Text("یک جلسه را از ستون کناری انتخاب کنید.")
-            )
+            let df = DateFormatter()
+            df.locale = langManager.currentLanguage.locale
+            df.dateStyle = .medium
+            df.timeStyle = .none
+            return df.string(from: date)
+        }
+    }
+
+    private func copyTranscript() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(session.formattedDialogue, forType: .string)
+    }
+
+    private func exportFormat(_ format: ExportFormat) {
+        _ = try? ExportService.export(session: session, format: format)
+    }
+}
+
+// MARK: - Detail Tabs Enum
+
+enum DetailTab: String, CaseIterable, Identifiable {
+    case transcript
+    case summary
+    case actionItems
+    case chat
+
+    var id: String { rawValue }
+
+    func label(lang: AppLanguage) -> String {
+        switch self {
+        case .transcript: return L10n.tr(.tabTranscript, lang)
+        case .summary: return L10n.tr(.tabSummary, lang)
+        case .actionItems: return L10n.tr(.tabActionItems, lang)
+        case .chat: return L10n.tr(.tabChat, lang)
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .transcript: return "doc.text"
+        case .summary: return "sparkles"
+        case .actionItems: return "checklist"
+        case .chat: return "bubble.left.and.bubble.right"
         }
     }
 }
+
+// MARK: - Apple Segmented Tab Bar
+
+struct AppleSegmentedTabBar: View {
+    @Binding var selectedTab: DetailTab
+    let session: TranscriptionSession
+    let language: AppLanguage
+
+    var body: some View {
+        HStack(spacing: 3) {
+            ForEach(DetailTab.allCases) { tab in
+                let isSelected = selectedTab == tab
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        selectedTab = tab
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: tab.icon)
+                            .font(.system(size: 11, weight: isSelected ? .semibold : .regular))
+                            .foregroundStyle(tabAccentColor(tab, isSelected: isSelected))
+
+                        Text(tab.label(lang: language))
+                            .font(.system(size: 12, weight: isSelected ? .semibold : .medium))
+                            .foregroundStyle(isSelected ? Color.primary : Color.secondary)
+
+                        if tab == .summary && session.summary != nil {
+                            Circle()
+                                .fill(Color.purple)
+                                .frame(width: 5, height: 5)
+                        }
+
+                        if tab == .actionItems && !session.actionItems.isEmpty {
+                            Text("\(session.actionItems.count)")
+                                .font(.system(size: 10, weight: .bold))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(isSelected ? Color.blue.opacity(0.18) : Color.secondary.opacity(0.12))
+                                .foregroundStyle(isSelected ? Color.blue : Color.secondary)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
+                    .background(
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(isSelected ? Color(nsColor: .controlColor) : Color.clear)
+                            .shadow(color: isSelected ? Color.black.opacity(0.08) : Color.clear, radius: 2, y: 1)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .stroke(isSelected ? Color.secondary.opacity(0.18) : Color.clear, lineWidth: 0.5)
+                    )
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(Color(nsColor: .controlBackgroundColor).opacity(0.75))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.5)
+        )
+    }
+
+    private func tabAccentColor(_ tab: DetailTab, isSelected: Bool) -> Color {
+        guard isSelected else { return .secondary }
+        switch tab {
+        case .transcript: return .accentColor
+        case .summary: return .purple
+        case .actionItems: return .blue
+        case .chat: return .teal
+        }
+    }
+}
+
+// MARK: - Session Detail View
 
 struct SessionDetailView: View {
     let session: TranscriptionSession
     let geminiAPIKey: String
 
     @EnvironmentObject var transcriptStore: TranscriptStore
+    @ObservedObject private var langManager = LanguageManager.shared
 
-    @State private var selectedTemplate: SummaryTemplate = .general
-    @State private var isSummarizing = false
-    @State private var summaryError: String?
-    @State private var isExtractingActions = false
-    @State private var actionError: String?
-    @State private var exportMessage: String?
+    @State private var selectedTab: DetailTab = .transcript
+    @State private var toastMessage: String?
+    @State private var showDeleteConfirm = false
+    @State private var exportError: String?
 
-    // Diarization & Attendees state
-    @State private var isDiarizing = false
-    @State private var diarizeError: String?
-    @State private var diarizeSuccess: String?
-    @State private var newAttendeeName = ""
+    // Audio Player
+    @StateObject private var audioPlayer = AudioPlayerService()
+    @State private var scrubTime: Double? = nil
+
+    // Editing Speaker Sheet
     @State private var activeEditingSegment: TranscriptSegment?
 
-    // Chat with meeting state
-    @State private var chatQuery = ""
-    @State private var isAnswering = false
-    @State private var chatAnswers: [(question: String, answer: String)] = []
-    @State private var chatError: String?
-
-    // Editable title
+    // Inline title editing
     @State private var isEditingTitle = false
     @State private var editedTitle = ""
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                header
-                exportSection
-                audioSection
-                speakersAndAttendeesSection
-                summarySection
-                actionItemsSection
-                chatSection
-                transcriptSection
-            }
-            .padding(18)
-        }
-        .onAppear {
-            editedTitle = session.title
-        }
-        .onChange(of: session.id) { _, _ in
-            editedTitle = session.title
-            chatAnswers.removeAll()
-            summaryError = nil
-            actionError = nil
-            chatError = nil
-            diarizeError = nil
-            diarizeSuccess = nil
-            newAttendeeName = ""
-            activeEditingSegment = nil
-        }
-    }
+        VStack(spacing: 0) {
+            // Header Bar
+            headerArea
+                .padding(.horizontal, 20)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
 
-    private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                if isEditingTitle {
-                    HStack {
-                        TextField("عنوان جلسه", text: $editedTitle)
-                            .textFieldStyle(.roundedBorder)
-                            .font(.title3)
-                        Button("ذخیره") {
-                            transcriptStore.updateTitle(editedTitle, for: session.id)
-                            isEditingTitle = false
-                        }
-                    }
-                } else {
-                    HStack {
-                        Text(session.title)
-                            .font(.title2.bold())
-                        Button {
-                            editedTitle = session.title
-                            isEditingTitle = true
-                        } label: {
-                            Image(systemName: "pencil")
-                                .font(.caption)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-
-                HStack(spacing: 8) {
-                    Text("\(session.wordCount) کلمه")
-                    Text("•")
-                    Text(session.createdAt.formatted())
-                    if let cal = session.calendarEventTitle {
-                        Text("•")
-                        Label(cal, systemImage: "calendar")
-                            .foregroundStyle(.blue)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Audio Player Bar (Voice Memos style)
+            if let audioURL = session.audioFileURL {
+                SessionAudioPlayerBar(
+                    audioURL: audioURL,
+                    audioPlayer: audioPlayer,
+                    scrubTime: $scrubTime
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             }
 
-            Spacer()
-
-            Button(role: .destructive) {
-                transcriptStore.deleteSession(session)
-            } label: {
-                Label("حذف", systemImage: "trash")
-            }
-        }
-    }
-
-    private var exportSection: some View {
-        GroupBox("اشتراک‌گذاری و خروجی") {
-            HStack(spacing: 12) {
-                ForEach(ExportFormat.allCases) { format in
-                    Button {
-                        exportSession(format: format)
-                    } label: {
-                        Label(format.label, systemImage: format == .pdf ? "doc.richtext" : "doc.text")
-                    }
-                    .disabled(session.fullText.isEmpty)
-                }
-
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(session.formattedDialogue, forType: .string)
-                    exportMessage = "گفتگو در کلیپ‌بورد کپی شد"
-                } label: {
-                    Label("کپی متن کامل", systemImage: "doc.on.doc")
-                }
-                .disabled(session.fullText.isEmpty)
+            // Apple Segmented Tab Bar
+            HStack {
+                AppleSegmentedTabBar(
+                    selectedTab: $selectedTab,
+                    session: session,
+                    language: langManager.currentLanguage
+                )
 
                 Spacer()
-
-                if let exportMessage {
-                    Text(exportMessage)
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
             }
-            .padding(.vertical, 4)
+            .padding(.horizontal, 20)
+            .padding(.bottom, 10)
+
+            Divider()
+
+            // Tab Content
+            tabContentArea
         }
-    }
-
-    @ViewBuilder
-    private var audioSection: some View {
-        if let audioURL = session.audioFileURL {
-            GroupBox("فایل صوتی جلسه") {
-                HStack(spacing: 12) {
-                    Button {
-                        NSWorkspace.shared.open(audioURL)
-                    } label: {
-                        Label("پخش صدا", systemImage: "play.circle.fill")
-                    }
-
-                    Button {
-                        NSWorkspace.shared.activateFileViewerSelecting([audioURL])
-                    } label: {
-                        Label("نمایش در Finder", systemImage: "folder")
-                    }
-
-                    Spacer()
-
-                    if let size = try? FileManager.default.attributesOfItem(atPath: audioURL.path)[.size] as? Int64 {
-                        Text(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.vertical, 4)
-            }
+        .background(Color(nsColor: .windowBackgroundColor))
+        .toolbar {
+            toolbarItems
         }
-    }
-
-    private var speakersAndAttendeesSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("گویندگان و تفکیک هوشمند", systemImage: "person.2.fill")
-                        .font(.headline)
-                        .foregroundStyle(.indigo)
-
-                    Spacer()
-
-                    HStack(spacing: 8) {
-                        Button {
-                            runVoiceEmbeddingClustering()
-                        } label: {
-                            Label("تفکیک صوتی آفلاین (Embeddings)", systemImage: "waveform.badge.magnifyingglass")
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(.blue)
-                        .disabled(session.segments.isEmpty)
-
-                        Button {
-                            Task { await runAIDiarization() }
-                        } label: {
-                            if isDiarizing {
-                                ProgressView().controlSize(.small)
-                            } else {
-                                Label("تفکیک هوشمند با Gemini", systemImage: "sparkles")
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.indigo)
-                        .disabled(isDiarizing || session.segments.isEmpty || geminiAPIKey.isEmpty)
-                    }
-                }
-
-                if geminiAPIKey.isEmpty {
-                    Text("برای تفکیک هوشمند گویندگان با هوش مصنوعی، ابتدا کلید API جمینای را در بخش تنظیمات وارد کنید.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                if let error = diarizeError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                if let success = diarizeSuccess {
-                    Text(success)
-                        .font(.caption)
-                        .foregroundStyle(.green)
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("حاضران در جلسه (برای کمک به دقت تفکیک و نام‌گذاری سریع):")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    HStack(spacing: 8) {
-                        TextField("نام فرد حاضر (مثلاً: رضا، سارا، مهندس تقوی)...", text: $newAttendeeName)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(maxWidth: 280)
-                            .onSubmit {
-                                addAttendee()
-                            }
-
-                        Button {
-                            addAttendee()
-                        } label: {
-                            Label("افزودن", systemImage: "plus")
-                        }
-                        .disabled(newAttendeeName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                        Spacer()
-                    }
-
-                    if !session.distinctSpeakers.isEmpty {
-                        FlowLayout(spacing: 6) {
-                            ForEach(session.distinctSpeakers, id: \.self) { speaker in
-                                HStack(spacing: 5) {
-                                    Circle()
-                                        .fill(speakerColor(speaker))
-                                        .frame(width: 8, height: 8)
-
-                                    Text(speaker)
-                                        .font(.caption.bold())
-
-                                    if session.attendees.contains(speaker) {
-                                        Button {
-                                            transcriptStore.removeAttendee(speaker, from: session.id)
-                                        } label: {
-                                            Image(systemName: "xmark")
-                                                .font(.system(size: 8))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                        .buttonStyle(.plain)
-                                    }
-                                }
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(speakerColor(speaker).opacity(0.12))
-                                .cornerRadius(10)
-                            }
-                        }
-                    }
-                }
+        .confirmationDialog(
+            L10n.tr(.deleteSessionConfirmTitle),
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(L10n.tr(.delete), role: .destructive) {
+                transcriptStore.deleteSession(session)
             }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private var summarySection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Label("خلاصه هوشمند با Gemini", systemImage: "sparkles")
-                        .font(.headline)
-                        .foregroundStyle(.purple)
-
-                    Spacer()
-
-                    Picker("قالب", selection: $selectedTemplate) {
-                        ForEach(SummaryTemplate.allCases) { tmpl in
-                            Label(tmpl.title, systemImage: tmpl.icon).tag(tmpl)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .frame(width: 170)
-
-                    Button {
-                        Task { await generateSummary() }
-                    } label: {
-                        if isSummarizing {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text("خلاصه‌سازی")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.purple)
-                    .disabled(isSummarizing || session.fullText.isEmpty || geminiAPIKey.isEmpty)
-                }
-
-                if geminiAPIKey.isEmpty {
-                    Text("برای استفاده از خلاصه‌سازی هوشمند، ابتدا کلید API جمینای را در بخش تنظیمات وارد کنید.")
-                        .font(.caption)
-                        .foregroundStyle(.orange)
-                }
-
-                if let error = summaryError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                if let summary = session.summary {
-                    Text(summary)
-                        .textSelection(.enabled)
-                        .font(.body)
-                        .lineSpacing(4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                        .background(Color.secondary.opacity(0.06))
-                        .cornerRadius(8)
-                } else {
-                    Text("هنوز خلاصه‌ای تولید نشده است. قالب مورد نظر را انتخاب و دکمه خلاصه‌سازی را بزنید.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private var actionItemsSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Label("اقدامات بعدی و وظایف (Action Items)", systemImage: "checklist")
-                        .font(.headline)
-                        .foregroundStyle(.blue)
-
-                    Spacer()
-
-                    if !session.actionItems.isEmpty {
-                        Button {
-                            copyActionItemsToClipboard()
-                        } label: {
-                            Label("کپی وظایف", systemImage: "doc.on.doc")
-                        }
-                        .buttonStyle(.borderless)
-                        .font(.caption)
-                    }
-
-                    Button {
-                        Task { await extractActionItems() }
-                    } label: {
-                        if isExtractingActions {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Label("استخراج خودکار", systemImage: "sparkles")
-                        }
-                    }
-                    .disabled(isExtractingActions || session.fullText.isEmpty || geminiAPIKey.isEmpty)
-                }
-
-                if let error = actionError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                if session.actionItems.isEmpty {
-                    Text("هیچ اقدامی ثبت نشده است. می‌توانید با دکمه «استخراج خودکار» وظایف را توسط هوش مصنوعی استخراج کنید.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(session.actionItems) { item in
-                            HStack(alignment: .top, spacing: 8) {
-                                Button {
-                                    transcriptStore.toggleActionItem(item.id, in: session.id)
-                                } label: {
-                                    Image(systemName: item.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(item.isCompleted ? .green : .secondary)
-                                }
-                                .buttonStyle(.plain)
-
-                                Text(item.text)
-                                    .strikethrough(item.isCompleted)
-                                    .foregroundStyle(item.isCompleted ? .secondary : .primary)
-                                    .font(.callout)
-
-                                if let assignee = item.assignee {
-                                    Text(assignee)
-                                        .font(.caption2.bold())
-                                        .padding(.horizontal, 5)
-                                        .padding(.vertical, 1)
-                                        .background(Color.blue.opacity(0.12))
-                                        .foregroundStyle(.blue)
-                                        .cornerRadius(4)
-                                }
-                                Spacer()
-                            }
-                        }
-                    }
-                    .padding(8)
-                    .background(Color.secondary.opacity(0.05))
-                    .cornerRadius(8)
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private var chatSection: some View {
-        GroupBox {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("پرسش و پاسخ از این جلسه", systemImage: "bubble.left.and.bubble.right.fill")
-                    .font(.headline)
-                    .foregroundStyle(.teal)
-
-                HStack {
-                    TextField("مثلاً: درباره زمان تحویل چه تصمیمی گرفته شد؟", text: $chatQuery)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit {
-                            Task { await askQuestion() }
-                        }
-
-                    Button {
-                        Task { await askQuestion() }
-                    } label: {
-                        if isAnswering {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Text("بپرس")
-                        }
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .tint(.teal)
-                    .disabled(isAnswering || chatQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || geminiAPIKey.isEmpty)
-                }
-
-                if let error = chatError {
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                }
-
-                if !chatAnswers.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(chatAnswers.indices, id: \.self) { idx in
-                            let pair = chatAnswers[idx]
-                            VStack(alignment: .leading, spacing: 4) {
-                                HStack {
-                                    Text("پرسش: \(pair.question)")
-                                        .font(.subheadline.bold())
-                                        .foregroundStyle(.primary)
-                                    Spacer()
-                                }
-                                Text(pair.answer)
-                                    .font(.callout)
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                            }
-                            .padding(8)
-                            .background(Color.teal.opacity(0.08))
-                            .cornerRadius(6)
-                        }
-                    }
-                }
-            }
-            .padding(.vertical, 4)
-        }
-    }
-
-    private var transcriptSection: some View {
-        GroupBox("رونوشت کامل جلسه (تفکیک گویندگان)") {
-            VStack(alignment: .leading, spacing: 10) {
-                if !session.segments.isEmpty {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(session.segments) { segment in
-                            HStack(alignment: .top, spacing: 10) {
-                                Menu {
-                                    Text("تغییر گوینده به:")
-                                    ForEach(session.distinctSpeakers, id: \.self) { candidate in
-                                        if candidate != segment.speakerDisplayName {
-                                            Button(candidate) {
-                                                transcriptStore.updateSegmentSpeaker(
-                                                    segmentID: segment.id,
-                                                    speakerName: candidate,
-                                                    in: session.id
-                                                )
-                                            }
-                                        }
-                                    }
-
-                                    Divider()
-
-                                    Button("ویرایش نام / تغییر سراسری...") {
-                                        activeEditingSegment = segment
-                                    }
-                                } label: {
-                                    HStack(spacing: 4) {
-                                        Image(systemName: segment.speaker.icon)
-                                            .font(.caption2)
-                                        Text(segment.speakerDisplayName)
-                                            .font(.caption.bold())
-                                            .lineLimit(1)
-                                        Image(systemName: "chevron.down")
-                                            .font(.system(size: 7))
-                                    }
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(speakerColor(segment.speakerDisplayName).opacity(0.15))
-                                    .foregroundStyle(speakerColor(segment.speakerDisplayName))
-                                    .cornerRadius(6)
-                                }
-                                .menuStyle(.borderlessButton)
-                                .frame(width: 130, alignment: .leading)
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(segment.text)
-                                        .textSelection(.enabled)
-                                        .font(.body)
-                                        .lineSpacing(3)
-                                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                                    Text(segment.formattedTime)
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.tertiary)
-                                }
-                            }
-                            Divider()
-                        }
-                    }
-                } else {
-                    Text(session.fullText.isEmpty ? "متنی در این جلسه وجود ندارد." : session.fullText)
-                        .textSelection(.enabled)
-                        .font(.body)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
-            .padding(.vertical, 6)
+            Button(L10n.tr(.cancel), role: .cancel) {}
+        } message: {
+            Text(L10n.tr(.deleteSessionConfirmMessage(sanitizeTitle(session.title))))
         }
         .sheet(item: $activeEditingSegment) { segment in
             SpeakerEditorSheet(
@@ -659,123 +495,272 @@ struct SessionDetailView: View {
                 }
             )
         }
-    }
-
-    private func speakerColor(_ name: String) -> Color {
-        if name == "شما" || name == AppSettings.userName {
-            return .blue
-        }
-        if name == "جلسه" || name == "جلسه / طرف مقابل" {
-            return .orange
-        }
-        let palette: [Color] = [.purple, .teal, .pink, .indigo, .green, .mint, .cyan]
-        let hash = abs(name.hashValue)
-        return palette[hash % palette.count]
-    }
-
-    private func exportSession(format: ExportFormat) {
-        exportMessage = nil
-        do {
-            if let url = try ExportService.export(session: session, format: format) {
-                exportMessage = "ذخیره شد: \(url.lastPathComponent)"
+        .onAppear {
+            editedTitle = sanitizeTitle(session.title)
+            if let audioURL = session.audioFileURL {
+                audioPlayer.load(url: audioURL)
             }
-        } catch {
-            exportMessage = nil
-            summaryError = error.localizedDescription
+        }
+        .onDisappear {
+            audioPlayer.stop()
+        }
+        .onChange(of: session.id) { _, _ in
+            audioPlayer.stop()
+            scrubTime = nil
+            if let audioURL = session.audioFileURL {
+                audioPlayer.load(url: audioURL)
+            }
+            editedTitle = sanitizeTitle(session.title)
+            activeEditingSegment = nil
+            toastMessage = nil
         }
     }
 
-    private func runVoiceEmbeddingClustering() {
-        let results = VoiceEmbeddingEngine.shared.cluster(segments: session.segments)
-        if results.isEmpty {
-            diarizeError = "داده‌های صوتی برای این جلسه موجود نیست یا مدت زمان دیالوگ‌ها برای استخراج بردار صوتی کافی نبوده است."
-            diarizeSuccess = nil
-        } else {
-            transcriptStore.applyDiarization(assignments: results, to: session.id)
-            let uniqueCount = Set(results.values).count
-            diarizeSuccess = "تفکیک صوتی آفلاین (Voice Embeddings) با موفقیت انجام شد: \(uniqueCount) گروه صوتی بر اساس تن و ویژگی‌های آکوستیک تفکیک شدند."
-            diarizeError = nil
+    // MARK: - Header Area
+
+    private var headerArea: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            // Title row
+            HStack(alignment: .center, spacing: 10) {
+                if isEditingTitle {
+                    HStack(spacing: 8) {
+                        TextField(L10n.tr(.meetingTitlePlaceholder), text: $editedTitle)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.title2.bold())
+                            .frame(maxWidth: 380)
+
+                        Button(L10n.tr(.save)) {
+                            transcriptStore.updateTitle(sanitizeTitle(editedTitle), for: session.id)
+                            isEditingTitle = false
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+
+                        Button(L10n.tr(.cancel)) {
+                            editedTitle = sanitizeTitle(session.title)
+                            isEditingTitle = false
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                } else {
+                    HStack(spacing: 8) {
+                        Text(sanitizeTitle(session.title))
+                            .font(.system(.title2, design: .default, weight: .bold))
+                            .lineLimit(1)
+
+                        Button {
+                            editedTitle = sanitizeTitle(session.title)
+                            isEditingTitle = true
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                        .help(L10n.tr(.meetingTitlePlaceholder))
+                    }
+                }
+
+                Spacer()
+
+                // Toast banner if active
+                if let toast = toastMessage {
+                    HStack(spacing: 5) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                            .font(.caption)
+                        Text(toast)
+                            .font(.caption.bold())
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.green.opacity(0.12))
+                    .clipShape(Capsule())
+                    .transition(.opacity)
+                }
+            }
+
+            // Metadata Chips
+            HStack(spacing: 12) {
+                // Date & Time
+                Label(session.createdAt.formatted(date: .abbreviated, time: .shortened), systemImage: "clock")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // Word count
+                Label("\(session.wordCount) \(L10n.tr(.words))", systemImage: "doc.text")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                // Audio file size (if available)
+                if let audioURL = session.audioFileURL,
+                   let size = try? FileManager.default.attributesOfItem(atPath: audioURL.path)[.size] as? Int64 {
+                    Label(ByteCountFormatter.string(fromByteCount: size, countStyle: .file), systemImage: "speaker.wave.2")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                // Calendar event chip
+                if let cal = session.calendarEventTitle, !cal.isEmpty {
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text(cal)
+                            .font(.caption)
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.10))
+                    .foregroundStyle(Color.accentColor)
+                    .clipShape(Capsule())
+                }
+
+                Spacer()
+            }
         }
     }
 
-    private func runAIDiarization() async {
-        isDiarizing = true
-        diarizeError = nil
-        diarizeSuccess = nil
-        defer { isDiarizing = false }
+    // MARK: - Toolbar Items
 
-        do {
-            let results = try await GeminiService.diarizeSpeakers(
-                segments: session.segments,
-                attendees: session.attendees,
-                apiKey: geminiAPIKey
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        // Language Switcher (EN / FA)
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                ForEach(AppLanguage.allCases) { lang in
+                    Button {
+                        langManager.currentLanguage = lang
+                    } label: {
+                        HStack {
+                            Text("\(lang.flag) \(lang.displayName)")
+                            if langManager.currentLanguage == lang {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "globe")
+                    Text(langManager.currentLanguage.shortLabel)
+                        .font(.system(size: 11, weight: .bold))
+                }
+            }
+            .help(L10n.tr(.language))
+        }
+
+        // Share & Export Menu
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button {
+                    exportSession(format: .pdf)
+                } label: {
+                    Label(L10n.tr(.exportPDF), systemImage: "doc.richtext")
+                }
+                .disabled(session.fullText.isEmpty)
+
+                Button {
+                    exportSession(format: .docx)
+                } label: {
+                    Label(L10n.tr(.exportWord), systemImage: "doc.text")
+                }
+                .disabled(session.fullText.isEmpty)
+
+                Divider()
+
+                Button {
+                    copyToClipboard(session.formattedDialogue, toast: L10n.tr(.copiedToClipboard))
+                } label: {
+                    Label(L10n.tr(.copyTranscript), systemImage: "doc.on.doc")
+                }
+                .disabled(session.fullText.isEmpty)
+
+                if let summary = session.summary, !summary.isEmpty {
+                    Button {
+                        copyToClipboard(summary, toast: L10n.tr(.summaryCopied))
+                    } label: {
+                        Label(L10n.tr(.copySummary), systemImage: "sparkles")
+                    }
+                }
+
+                if !session.actionItems.isEmpty {
+                    Button {
+                        copyActionItemsToClipboard()
+                    } label: {
+                        Label(L10n.tr(.copyActionItems), systemImage: "checklist")
+                    }
+                }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+            }
+            .help(L10n.tr(.shareAndExport))
+        }
+
+        // Delete Session Button
+        ToolbarItem(placement: .destructiveAction) {
+            Button {
+                showDeleteConfirm = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .help(L10n.tr(.delete))
+        }
+    }
+
+    // MARK: - Tab Content Area
+
+    @ViewBuilder
+    private var tabContentArea: some View {
+        switch selectedTab {
+        case .transcript:
+            SessionTranscriptTabView(
+                session: session,
+                geminiAPIKey: geminiAPIKey,
+                audioPlayer: audioPlayer,
+                activeEditingSegment: $activeEditingSegment
             )
-            transcriptStore.applyDiarization(assignments: results, to: session.id)
-            diarizeSuccess = "گویندگان جلسه با موفقیت تفکیک و نام‌گذاری شدند (\(results.count) بخش به‌روزرسانی شد)."
-        } catch {
-            diarizeError = "خطا در تفکیک گویندگان: \(error.localizedDescription)"
+        case .summary:
+            SessionSummaryTabView(
+                session: session,
+                geminiAPIKey: geminiAPIKey,
+                onCopy: { text, toast in
+                    copyToClipboard(text, toast: toast)
+                }
+            )
+        case .actionItems:
+            SessionActionItemsTabView(
+                session: session,
+                geminiAPIKey: geminiAPIKey,
+                onCopy: { text, toast in
+                    copyToClipboard(text, toast: toast)
+                }
+            )
+        case .chat:
+            SessionChatTabView(
+                session: session,
+                geminiAPIKey: geminiAPIKey,
+                onCopy: { text, toast in
+                    copyToClipboard(text, toast: toast)
+                }
+            )
         }
     }
 
-    private func addAttendee() {
-        let trimmed = newAttendeeName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        transcriptStore.addAttendee(trimmed, to: session.id)
-        newAttendeeName = ""
-    }
-
-    private func generateSummary() async {
-        isSummarizing = true
-        summaryError = nil
-        defer { isSummarizing = false }
-
-        do {
-            let summary = try await GeminiService.summarize(
-                text: session.formattedDialogue,
-                apiKey: geminiAPIKey,
-                template: selectedTemplate
-            )
-            transcriptStore.setSummary(summary, for: session.id)
-        } catch {
-            summaryError = error.localizedDescription
+    private func copyToClipboard(_ text: String, toast: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        withAnimation {
+            toastMessage = toast
         }
-    }
-
-    private func extractActionItems() async {
-        isExtractingActions = true
-        actionError = nil
-        defer { isExtractingActions = false }
-
-        do {
-            let items = try await GeminiService.extractActionItems(
-                text: session.formattedDialogue,
-                apiKey: geminiAPIKey
-            )
-            transcriptStore.setActionItems(items, for: session.id)
-        } catch {
-            actionError = error.localizedDescription
-        }
-    }
-
-    private func askQuestion() async {
-        let q = chatQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty else { return }
-
-        isAnswering = true
-        chatError = nil
-        defer { isAnswering = false }
-
-        do {
-            let ans = try await GeminiService.chatWithMeeting(
-                question: q,
-                transcript: session.formattedDialogue,
-                summary: session.summary,
-                apiKey: geminiAPIKey
-            )
-            chatAnswers.append((question: q, answer: ans))
-            chatQuery = ""
-        } catch {
-            chatError = error.localizedDescription
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation {
+                if toastMessage == toast {
+                    toastMessage = nil
+                }
+            }
         }
     }
 
@@ -786,86 +771,21 @@ struct SessionDetailView: View {
             return "\(check) \(item.text)\(assignee)"
         }.joined(separator: "\n")
 
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(lines, forType: .string)
-        exportMessage = "وظایف در کلیپ‌بورد کپی شد"
-    }
-}
-
-struct SpeakerEditorSheet: View {
-    let segment: TranscriptSegment
-    let session: TranscriptionSession
-    let onSave: (String, Bool) -> Void
-
-    @State private var name: String
-    @Environment(\.dismiss) private var dismiss
-
-    init(segment: TranscriptSegment, session: TranscriptionSession, onSave: @escaping (String, Bool) -> Void) {
-        self.segment = segment
-        self.session = session
-        self.onSave = onSave
-        _name = State(initialValue: segment.speakerDisplayName)
+        copyToClipboard(lines, toast: L10n.tr(.tasksCopied))
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("ویرایش نام گوینده")
-                .font(.headline)
-
-            Text("نام فعلی: \(segment.speakerDisplayName)")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            TextField("نام جدید گوینده...", text: $name)
-                .textFieldStyle(.roundedBorder)
-
-            if !session.distinctSpeakers.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("انتخاب سریع از میان حاضران:")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    FlowLayout(spacing: 6) {
-                        ForEach(session.distinctSpeakers, id: \.self) { candidate in
-                            Button(candidate) {
-                                name = candidate
-                            }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
-                    }
+    private func exportSession(format: ExportFormat) {
+        do {
+            if let url = try ExportService.export(session: session, format: format) {
+                withAnimation {
+                    toastMessage = L10n.tr(.savedFile(url.lastPathComponent))
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4.0) {
+                    withAnimation { toastMessage = nil }
                 }
             }
-
-            Divider()
-
-            HStack {
-                Button("انصراف", role: .cancel) {
-                    dismiss()
-                }
-
-                Spacer()
-
-                Button("فقط این بخش") {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    onSave(trimmed, false)
-                    dismiss()
-                }
-                .buttonStyle(.bordered)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-
-                Button("تغییر در کل جلسه") {
-                    let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !trimmed.isEmpty else { return }
-                    onSave(trimmed, true)
-                    dismiss()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
+        } catch {
+            exportError = error.localizedDescription
         }
-        .padding(18)
-        .frame(width: 360)
     }
 }

@@ -13,25 +13,33 @@
 		B0001003 /* AppSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001003 /* AppSettings.swift */; };
 		B0001004 /* AudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001004 /* AudioCaptureService.swift */; };
 		B0001005 /* AudioMixer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001005 /* AudioMixer.swift */; };
-		B0001006 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001006 /* CalendarService.swift */; };
-		B0001007 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001007 /* ClipboardService.swift */; };
-		B0001008 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001008 /* ExportService.swift */; };
-		B0001009 /* GeminiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001009 /* GeminiService.swift */; };
-		B000100A /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100A /* KeychainHelper.swift */; };
-		B000100B /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100B /* ModelManager.swift */; };
-		B000100C /* PCMConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100C /* PCMConverter.swift */; };
-		B000100D /* RecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100D /* RecordingCoordinator.swift */; };
-		B000100E /* SystemAudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100E /* SystemAudioCaptureService.swift */; };
-		B000100F /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100F /* TranscriptStore.swift */; };
-		B0001010 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001010 /* UpdateManager.swift */; };
-		B0001011 /* VADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001011 /* VADDetector.swift */; };
-		B0001012 /* VoiceEmbeddingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001012 /* VoiceEmbeddingEngine.swift */; };
-		B0001013 /* WhisperEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001013 /* WhisperEngine.swift */; };
-		B0001014 /* MenuBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001014 /* MenuBarPopoverView.swift */; };
-		B0001015 /* SessionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001015 /* SessionsListView.swift */; };
-		B0001016 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001016 /* SettingsView.swift */; };
-		B0001017 /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001017 /* TranscriptView.swift */; };
-		B0001018 /* LibWhisper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001018 /* LibWhisper.swift */; };
+		B0001006 /* AudioPlayerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001006 /* AudioPlayerService.swift */; };
+		B0001007 /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001007 /* CalendarService.swift */; };
+		B0001008 /* ClipboardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001008 /* ClipboardService.swift */; };
+		B0001009 /* ExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001009 /* ExportService.swift */; };
+		B000100A /* GeminiService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100A /* GeminiService.swift */; };
+		B000100B /* KeychainHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100B /* KeychainHelper.swift */; };
+		B000100C /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100C /* Localization.swift */; };
+		B000100D /* ModelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100D /* ModelManager.swift */; };
+		B000100E /* PCMConverter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100E /* PCMConverter.swift */; };
+		B000100F /* RecordingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000100F /* RecordingCoordinator.swift */; };
+		B0001010 /* SystemAudioCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001010 /* SystemAudioCaptureService.swift */; };
+		B0001011 /* TranscriptStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001011 /* TranscriptStore.swift */; };
+		B0001012 /* UpdateManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001012 /* UpdateManager.swift */; };
+		B0001013 /* VADDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001013 /* VADDetector.swift */; };
+		B0001014 /* VoiceEmbeddingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001014 /* VoiceEmbeddingEngine.swift */; };
+		B0001015 /* WhisperEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001015 /* WhisperEngine.swift */; };
+		B0001016 /* MenuBarPopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001016 /* MenuBarPopoverView.swift */; };
+		B0001017 /* SessionActionItemsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001017 /* SessionActionItemsTabView.swift */; };
+		B0001018 /* SessionAudioPlayerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001018 /* SessionAudioPlayerBar.swift */; };
+		B0001019 /* SessionChatTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001019 /* SessionChatTabView.swift */; };
+		B000101A /* SessionSummaryTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101A /* SessionSummaryTabView.swift */; };
+		B000101B /* SessionTranscriptTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101B /* SessionTranscriptTabView.swift */; };
+		B000101C /* SessionsListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101C /* SessionsListView.swift */; };
+		B000101D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101D /* SettingsView.swift */; };
+		B000101E /* SpeakerEditorSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101E /* SpeakerEditorSheet.swift */; };
+		B000101F /* TranscriptView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A000101F /* TranscriptView.swift */; };
+		B0001020 /* LibWhisper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0001020 /* LibWhisper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,25 +52,33 @@
 		A0001003 /* AppSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/AppSettings.swift"; sourceTree = "<group>"; };
 		A0001004 /* AudioCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/AudioCaptureService.swift"; sourceTree = "<group>"; };
 		A0001005 /* AudioMixer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/AudioMixer.swift"; sourceTree = "<group>"; };
-		A0001006 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/CalendarService.swift"; sourceTree = "<group>"; };
-		A0001007 /* ClipboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ClipboardService.swift"; sourceTree = "<group>"; };
-		A0001008 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ExportService.swift"; sourceTree = "<group>"; };
-		A0001009 /* GeminiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/GeminiService.swift"; sourceTree = "<group>"; };
-		A000100A /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/KeychainHelper.swift"; sourceTree = "<group>"; };
-		A000100B /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ModelManager.swift"; sourceTree = "<group>"; };
-		A000100C /* PCMConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/PCMConverter.swift"; sourceTree = "<group>"; };
-		A000100D /* RecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/RecordingCoordinator.swift"; sourceTree = "<group>"; };
-		A000100E /* SystemAudioCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/SystemAudioCaptureService.swift"; sourceTree = "<group>"; };
-		A000100F /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/TranscriptStore.swift"; sourceTree = "<group>"; };
-		A0001010 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/UpdateManager.swift"; sourceTree = "<group>"; };
-		A0001011 /* VADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VADDetector.swift"; sourceTree = "<group>"; };
-		A0001012 /* VoiceEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VoiceEmbeddingEngine.swift"; sourceTree = "<group>"; };
-		A0001013 /* WhisperEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/WhisperEngine.swift"; sourceTree = "<group>"; };
-		A0001014 /* MenuBarPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/MenuBarPopoverView.swift"; sourceTree = "<group>"; };
-		A0001015 /* SessionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionsListView.swift"; sourceTree = "<group>"; };
-		A0001016 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SettingsView.swift"; sourceTree = "<group>"; };
-		A0001017 /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/TranscriptView.swift"; sourceTree = "<group>"; };
-		A0001018 /* LibWhisper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Whisper/LibWhisper.swift"; sourceTree = "<group>"; };
+		A0001006 /* AudioPlayerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/AudioPlayerService.swift"; sourceTree = "<group>"; };
+		A0001007 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/CalendarService.swift"; sourceTree = "<group>"; };
+		A0001008 /* ClipboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ClipboardService.swift"; sourceTree = "<group>"; };
+		A0001009 /* ExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ExportService.swift"; sourceTree = "<group>"; };
+		A000100A /* GeminiService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/GeminiService.swift"; sourceTree = "<group>"; };
+		A000100B /* KeychainHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/KeychainHelper.swift"; sourceTree = "<group>"; };
+		A000100C /* Localization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/Localization.swift"; sourceTree = "<group>"; };
+		A000100D /* ModelManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/ModelManager.swift"; sourceTree = "<group>"; };
+		A000100E /* PCMConverter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/PCMConverter.swift"; sourceTree = "<group>"; };
+		A000100F /* RecordingCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/RecordingCoordinator.swift"; sourceTree = "<group>"; };
+		A0001010 /* SystemAudioCaptureService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/SystemAudioCaptureService.swift"; sourceTree = "<group>"; };
+		A0001011 /* TranscriptStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/TranscriptStore.swift"; sourceTree = "<group>"; };
+		A0001012 /* UpdateManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/UpdateManager.swift"; sourceTree = "<group>"; };
+		A0001013 /* VADDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VADDetector.swift"; sourceTree = "<group>"; };
+		A0001014 /* VoiceEmbeddingEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/VoiceEmbeddingEngine.swift"; sourceTree = "<group>"; };
+		A0001015 /* WhisperEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Services/WhisperEngine.swift"; sourceTree = "<group>"; };
+		A0001016 /* MenuBarPopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/MenuBarPopoverView.swift"; sourceTree = "<group>"; };
+		A0001017 /* SessionActionItemsTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionActionItemsTabView.swift"; sourceTree = "<group>"; };
+		A0001018 /* SessionAudioPlayerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionAudioPlayerBar.swift"; sourceTree = "<group>"; };
+		A0001019 /* SessionChatTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionChatTabView.swift"; sourceTree = "<group>"; };
+		A000101A /* SessionSummaryTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionSummaryTabView.swift"; sourceTree = "<group>"; };
+		A000101B /* SessionTranscriptTabView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionTranscriptTabView.swift"; sourceTree = "<group>"; };
+		A000101C /* SessionsListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SessionsListView.swift"; sourceTree = "<group>"; };
+		A000101D /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SettingsView.swift"; sourceTree = "<group>"; };
+		A000101E /* SpeakerEditorSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/SpeakerEditorSheet.swift"; sourceTree = "<group>"; };
+		A000101F /* TranscriptView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Views/TranscriptView.swift"; sourceTree = "<group>"; };
+		A0001020 /* LibWhisper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MirzaBenevis/Whisper/LibWhisper.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -172,25 +188,33 @@
 				B0001003 /* AppSettings.swift in Sources */,
 				B0001004 /* AudioCaptureService.swift in Sources */,
 				B0001005 /* AudioMixer.swift in Sources */,
-				B0001006 /* CalendarService.swift in Sources */,
-				B0001007 /* ClipboardService.swift in Sources */,
-				B0001008 /* ExportService.swift in Sources */,
-				B0001009 /* GeminiService.swift in Sources */,
-				B000100A /* KeychainHelper.swift in Sources */,
-				B000100B /* ModelManager.swift in Sources */,
-				B000100C /* PCMConverter.swift in Sources */,
-				B000100D /* RecordingCoordinator.swift in Sources */,
-				B000100E /* SystemAudioCaptureService.swift in Sources */,
-				B000100F /* TranscriptStore.swift in Sources */,
-				B0001010 /* UpdateManager.swift in Sources */,
-				B0001011 /* VADDetector.swift in Sources */,
-				B0001012 /* VoiceEmbeddingEngine.swift in Sources */,
-				B0001013 /* WhisperEngine.swift in Sources */,
-				B0001014 /* MenuBarPopoverView.swift in Sources */,
-				B0001015 /* SessionsListView.swift in Sources */,
-				B0001016 /* SettingsView.swift in Sources */,
-				B0001017 /* TranscriptView.swift in Sources */,
-				B0001018 /* LibWhisper.swift in Sources */,
+				B0001006 /* AudioPlayerService.swift in Sources */,
+				B0001007 /* CalendarService.swift in Sources */,
+				B0001008 /* ClipboardService.swift in Sources */,
+				B0001009 /* ExportService.swift in Sources */,
+				B000100A /* GeminiService.swift in Sources */,
+				B000100B /* KeychainHelper.swift in Sources */,
+				B000100C /* Localization.swift in Sources */,
+				B000100D /* ModelManager.swift in Sources */,
+				B000100E /* PCMConverter.swift in Sources */,
+				B000100F /* RecordingCoordinator.swift in Sources */,
+				B0001010 /* SystemAudioCaptureService.swift in Sources */,
+				B0001011 /* TranscriptStore.swift in Sources */,
+				B0001012 /* UpdateManager.swift in Sources */,
+				B0001013 /* VADDetector.swift in Sources */,
+				B0001014 /* VoiceEmbeddingEngine.swift in Sources */,
+				B0001015 /* WhisperEngine.swift in Sources */,
+				B0001016 /* MenuBarPopoverView.swift in Sources */,
+				B0001017 /* SessionActionItemsTabView.swift in Sources */,
+				B0001018 /* SessionAudioPlayerBar.swift in Sources */,
+				B0001019 /* SessionChatTabView.swift in Sources */,
+				B000101A /* SessionSummaryTabView.swift in Sources */,
+				B000101B /* SessionTranscriptTabView.swift in Sources */,
+				B000101C /* SessionsListView.swift in Sources */,
+				B000101D /* SettingsView.swift in Sources */,
+				B000101E /* SpeakerEditorSheet.swift in Sources */,
+				B000101F /* TranscriptView.swift in Sources */,
+				B0001020 /* LibWhisper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -234,7 +258,7 @@
 				CODE_SIGN_ENTITLEMENTS = MirzaBenevis/MirzaBenevis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MirzaBenevis/Info.plist;
@@ -258,7 +282,7 @@
 				CODE_SIGN_ENTITLEMENTS = MirzaBenevis/MirzaBenevis.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = MirzaBenevis/Info.plist;

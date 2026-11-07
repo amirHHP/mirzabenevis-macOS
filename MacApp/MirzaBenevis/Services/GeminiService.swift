@@ -10,12 +10,27 @@ enum SummaryTemplate: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 
     var title: String {
-        switch self {
-        case .general: return "عمومی و جامع"
-        case .standup: return "جلسه روزانه / اسکرام"
-        case .oneOnOne: return "جلسه ۱ به ۱ (1-on-1)"
-        case .sales: return "جلسه مشتری و فروش"
-        case .technical: return "تصمیم‌گیری فنی و معماری"
+        localizedTitle(for: LanguageManager.shared.currentLanguage)
+    }
+
+    func localizedTitle(for lang: AppLanguage = LanguageManager.shared.currentLanguage) -> String {
+        switch lang {
+        case .english:
+            switch self {
+            case .general: return "General & Comprehensive"
+            case .standup: return "Daily Standup / Scrum"
+            case .oneOnOne: return "1-on-1 Meeting"
+            case .sales: return "Sales & Client Meeting"
+            case .technical: return "Technical Architecture"
+            }
+        case .persian:
+            switch self {
+            case .general: return "عمومی و جامع"
+            case .standup: return "جلسه روزانه / اسکرام"
+            case .oneOnOne: return "جلسه ۱ به ۱ (1-on-1)"
+            case .sales: return "جلسه مشتری و فروش"
+            case .technical: return "تصمیم‌گیری فنی و معماری"
+            }
         }
     }
 
@@ -29,68 +44,126 @@ enum SummaryTemplate: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    func buildPrompt(transcript: String) -> String {
-        switch self {
-        case .general:
-            return """
-            متن زیر رونوشت یک جلسه است. لطفاً یک خلاصه ساختاریافته و مفید به زبان فارسی بنویس.
-            شامل این بخش‌ها باشد:
-            - موضوع اصلی جلسه
-            - نکات و بحث‌های کلیدی
-            - تصمیمات نهایی گرفته شده
-            - اقدامات و وظایف بعدی (Action Items) با ذکر مسئول در صورت مشخص بودن
+    func buildPrompt(transcript: String, language: AppLanguage = LanguageManager.shared.currentLanguage) -> String {
+        switch language {
+        case .english:
+            switch self {
+            case .general:
+                return """
+                The following is a transcript of a meeting. Please write a structured and comprehensive summary in English.
+                Include these sections:
+                - Meeting Overview & Primary Objective
+                - Key Discussion Points & Insights
+                - Decisions Made
+                - Action Items & Next Steps (with assignees if mentioned)
 
-            رونوشت جلسه:
-            \(transcript)
-            """
+                Meeting Transcript:
+                \(transcript)
+                """
+            case .standup:
+                return """
+                The following is a transcript of a daily standup / Scrum meeting. Please write a concise summary in English:
+                - What each person accomplished
+                - What each person plans to work on today
+                - Blockers and challenges identified
+                - Immediate coordination needs
 
-        case .standup:
-            return """
-            متن زیر رونوشت یک جلسه استندآپ روزانه یا اسکرام است. لطفاً خلاصه را در قالب زیر به زبان فارسی تدوین کن:
-            - کارهای انجام شده توسط هر فرد
-            - کارهای برنامه‌ریزی شده برای امروز
-            - موانع و بلاکرها (Blockers)
-            - هماهنگی‌های فوری مورد نیاز
+                Meeting Transcript:
+                \(transcript)
+                """
+            case .oneOnOne:
+                return """
+                The following is a transcript of a 1-on-1 meeting. Please write a clear and structured summary in English:
+                - Discussion topics & core concerns
+                - Feedback & points exchanged
+                - Individual goals & career growth
+                - Commitments & follow-ups for the next session
 
-            رونوشت جلسه:
-            \(transcript)
-            """
+                Meeting Transcript:
+                \(transcript)
+                """
+            case .sales:
+                return """
+                The following is a transcript of a client or sales meeting. Please write a comprehensive summary in English:
+                - Client requirements & goals
+                - Budget, timeline & constraints
+                - Questions raised or concerns needing follow-up
+                - Next steps to advance the relationship/contract
 
-        case .oneOnOne:
-            return """
-            متن زیر رونوشت یک جلسه یک‌به‌یک (1-on-1) است. لطفاً یک خلاصه محرمانه و ساختاریافته به زبان فارسی شامل موارد زیر بنویس:
-            - موضوعات و دغدغه‌های مطرح شده
-            - بازخوردها و نکات تبادل شده
-            - اهداف فردی و مسیر رشد
-            - تعهدات طرفین و موارد پیگیری برای جلسه بعد
+                Meeting Transcript:
+                \(transcript)
+                """
+            case .technical:
+                return """
+                The following is a transcript of a technical architecture and design meeting. Please write a technical summary in English:
+                - Technical problem statement & requirements
+                - Architectural options evaluated with pros & cons
+                - Final decision & rationale
+                - Implementation risks & dependencies
 
-            رونوشت جلسه:
-            \(transcript)
-            """
+                Meeting Transcript:
+                \(transcript)
+                """
+            }
+        case .persian:
+            switch self {
+            case .general:
+                return """
+                متن زیر رونوشت یک جلسه است. لطفاً یک خلاصه ساختاریافته و مفید به زبان فارسی بنویس.
+                شامل این بخش‌ها باشد:
+                - موضوع اصلی جلسه
+                - نکات و بحث‌های کلیدی
+                - تصمیمات نهایی گرفته شده
+                - اقدامات و وظایف بعدی (Action Items) با ذکر مسئول در صورت مشخص بودن
 
-        case .sales:
-            return """
-            متن زیر رونوشت یک جلسه با مشتری یا جلسه فروش است. لطفاً یک گزارش به زبان فارسی بنویس شامل:
-            - نیازمندی‌ها و اهداف اصلی مشتری
-            - بودجه، زمان‌بندی و محدودیت‌ها
-            - دغدغه‌ها یا سوالات بدون پاسخ مشتری
-            - گام‌های بعدی توافق شده جهت پیگیری قرارداد یا فروش
+                رونوشت جلسه:
+                \(transcript)
+                """
+            case .standup:
+                return """
+                متن زیر رونوشت یک جلسه استندآپ روزانه یا اسکرام است. لطفاً خلاصه را در قالب زیر به زبان فارسی تدوین کن:
+                - کارهای انجام شده توسط هر فرد
+                - کارهای برنامه‌ریزی شده برای امروز
+                - موانع و بلاکرها (Blockers)
+                - هماهنگی‌های فوری مورد نیاز
 
-            رونوشت جلسه:
-            \(transcript)
-            """
+                رونوشت جلسه:
+                \(transcript)
+                """
+            case .oneOnOne:
+                return """
+                متن زیر رونوشت یک جلسه یک‌به‌یک (1-on-1) است. لطفاً یک خلاصه محرمانه و ساختاریافته به زبان فارسی شامل موارد زیر بنویس:
+                - موضوعات و دغدغه‌های مطرح شده
+                - بازخوردها و نکات تبادل شده
+                - اهداف فردی و مسیر رشد
+                - تعهدات طرفین و موارد پیگیری برای جلسه بعد
 
-        case .technical:
-            return """
-            متن زیر رونوشت یک جلسه بررسی معماری یا تصمیم‌گیری فنی است. لطفاً گزارش فنی به زبان فارسی شامل این بخش‌ها ارائه کن:
-            - مسئله یا نیازمندی فنی
-            - گزینه‌ها و راه‌حل‌های مطرح شده و مقایسه مزایا/معایب
-            - تصمیم نهایی معماری (Architectural Decision) و دلایل آن
-            - ریسک‌ها و نیازمندی‌های پیاده‌سازی
+                رونوشت جلسه:
+                \(transcript)
+                """
+            case .sales:
+                return """
+                متن زیر رونوشت یک جلسه با مشتری یا جلسه فروش است. لطفاً یک گزارش به زبان فارسی بنویس شامل:
+                - نیازمندی‌ها و اهداف اصلی مشتری
+                - بودجه، زمان‌بندی و محدودیت‌ها
+                - دغدغه‌ها یا سوالات بدون پاسخ مشتری
+                - گام‌های بعدی توافق شده جهت پیگیری قرارداد یا فروش
 
-            رونوشت جلسه:
-            \(transcript)
-            """
+                رونوشت جلسه:
+                \(transcript)
+                """
+            case .technical:
+                return """
+                متن زیر رونوشت یک جلسه بررسی معماری یا تصمیم‌گیری فنی است. لطفاً گزارش فنی به زبان فارسی شامل این بخش‌ها ارائه کن:
+                - مسئله یا نیازمندی فنی
+                - گزینه‌ها و راه‌حل‌های مطرح شده و مقایسه مزایا/معایب
+                - تصمیم نهایی معماری (Architectural Decision) و دلایل آن
+                - ریسک‌ها و نیازمندی‌های پیاده‌سازی
+
+                رونوشت جلسه:
+                \(transcript)
+                """
+            }
         }
     }
 }
@@ -113,9 +186,14 @@ enum GeminiService {
         }
     }
 
-    private static let apiModel = "gemini-2.0-flash"
-
-    private static func callGemini(prompt: String, apiKey: String, temperature: Double = 0.3) async throws -> String {
+    private static func callGemini(
+        prompt: String,
+        apiKey: String,
+        temperature: Double = 0.3,
+        responseMimeType: String? = nil,
+        model: String? = nil,
+        retryWithFallback: Bool = true
+    ) async throws -> String {
         guard !apiKey.isEmpty else { throw GeminiError.missingAPIKey }
 
         var baseHost = AppSettings.geminiCustomHost.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -126,9 +204,18 @@ enum GeminiService {
             baseHost.removeLast()
         }
 
-        let url = URL(
-            string: "\(baseHost)/v1beta/models/\(apiModel):generateContent?key=\(apiKey)"
-        )!
+        let targetModel = model ?? AppSettings.geminiModel
+        guard let url = URL(string: "\(baseHost)/v1beta/models/\(targetModel):generateContent") else {
+            throw GeminiError.invalidResponse
+        }
+
+        var generationConfig: [String: Any] = [
+            "temperature": temperature,
+            "maxOutputTokens": 4096
+        ]
+        if let responseMimeType = responseMimeType {
+            generationConfig["responseMimeType"] = responseMimeType
+        }
 
         let body: [String: Any] = [
             "contents": [
@@ -138,15 +225,13 @@ enum GeminiService {
                     ]
                 ]
             ],
-            "generationConfig": [
-                "temperature": temperature,
-                "maxOutputTokens": 3000
-            ]
+            "generationConfig": generationConfig
         ]
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-goog-api-key")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -156,6 +241,18 @@ enum GeminiService {
         }
 
         if http.statusCode != 200 {
+            // Check for fallback if model not found or deprecated
+            if (http.statusCode == 404 || http.statusCode == 400) && retryWithFallback && targetModel != "gemini-1.5-flash" {
+                return try await callGemini(
+                    prompt: prompt,
+                    apiKey: apiKey,
+                    temperature: temperature,
+                    responseMimeType: responseMimeType,
+                    model: "gemini-1.5-flash",
+                    retryWithFallback: false
+                )
+            }
+
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let error = json["error"] as? [String: Any],
                let message = error["message"] as? String {
@@ -201,19 +298,70 @@ enum GeminiService {
             return []
         }
 
-        let prompt = """
-        متن زیر رونوشت یک جلسه است. لطفاً فقط و فقط تمام وظایف، اقدامات بعدی (Action Items) و تعهداتی که باید انجام شوند را استخراج کن.
-        هر اقدام را در یک خط جداگانه بنویس و با علامت - شروع کن.
-        اگر مسئول مشخص است، در ابتدای پرانتز بنویس (مثلاً: - (علی) آماده کردن داکیومنت معماری).
-        هیچ توضیح اضافه، مقدمه یا موخره‌ای ننویس.
+        let isEnglish = LanguageManager.shared.currentLanguage == .english
+        let prompt: String
+        if isEnglish {
+            prompt = """
+            The following is a meeting transcript. Extract all actionable tasks, next steps (Action Items), and commitments that need to be done.
+            Output exclusively a valid JSON array of objects without any markdown formatting or surrounding text:
+            [
+              {"text": "Task description", "assignee": "Person name or null"}
+            ]
 
-        رونوشت:
-        \(text)
-        """
+            Transcript:
+            \(text)
+            """
+        } else {
+            prompt = """
+            متن زیر رونوشت یک جلسه است. لطفاً تمام وظایف، اقدامات بعدی (Action Items) و تعهداتی که باید انجام شوند را استخراج کن.
+            پاسخ را منحصراً در قالب یک آرایه معتبر JSON بدون هیچ متن اضافی، بدون قالب‌بندی مارک‌داون و بدون مقدمه برگردان:
+            [
+              {"text": "شرح اقدام یا وظیفه", "assignee": "نام مسئول یا null"}
+            ]
 
-        let response = try await callGemini(prompt: prompt, apiKey: apiKey, temperature: 0.2)
+            رونوشت:
+            \(text)
+            """
+        }
+
+        let response = try await callGemini(
+            prompt: prompt,
+            apiKey: apiKey,
+            temperature: 0.2,
+            responseMimeType: "application/json"
+        )
+
+        var jsonString = response.trimmingCharacters(in: .whitespacesAndNewlines)
+        if jsonString.hasPrefix("```json") {
+            jsonString = String(jsonString.dropFirst(7))
+        } else if jsonString.hasPrefix("```") {
+            jsonString = String(jsonString.dropFirst(3))
+        }
+        if jsonString.hasSuffix("```") {
+            jsonString = String(jsonString.dropLast(3))
+        }
+        jsonString = jsonString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        struct ActionItemDTO: Codable {
+            let text: String
+            let assignee: String?
+        }
+
+        if let data = jsonString.data(using: .utf8),
+           let dtos = try? JSONDecoder().decode([ActionItemDTO].self, from: data) {
+            return dtos.compactMap { dto in
+                let cleaned = dto.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !cleaned.isEmpty else { return nil }
+                return MeetingActionItem(
+                    text: cleaned,
+                    isCompleted: false,
+                    assignee: dto.assignee?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ? dto.assignee : nil
+                )
+            }
+        }
+
+        // Fallback to line-by-line parsing if JSON decoding fails
         let lines = response.components(separatedBy: .newlines)
-
         var items: [MeetingActionItem] = []
         for line in lines {
             var cleaned = line.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -245,22 +393,41 @@ enum GeminiService {
         summary: String?,
         apiKey: String
     ) async throws -> String {
+        let isEnglish = LanguageManager.shared.currentLanguage == .english
         guard !question.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return "لطفاً سوال خود را بنویسید."
+            return isEnglish ? "Please enter your question." : "لطفاً سوال خود را بنویسید."
         }
 
-        let summaryContext = summary.map { "خلاصه قبلی جلسه:\n\($0)\n" } ?? ""
-        let prompt = """
-        تو دستیار هوشمند جلسه (میرزا بنویس) هستی. به سوال کاربر با دقت کامل و منحصراً بر اساس متن و اطلاعات این جلسه پاسخ بده.
-        پاسخ باید دقیق، ساختاریافته و به زبان فارسی سلیس باشد. اگر اطلاعاتی در جلسه وجود ندارد، صادقانه بگو در متن جلسه مطرح نشده است.
+        let summaryContext: String
+        let prompt: String
 
-        \(summaryContext)
-        رونوشت کامل جلسه:
-        \(transcript)
+        if isEnglish {
+            summaryContext = summary.map { "Previous Meeting Summary:\n\($0)\n" } ?? ""
+            prompt = """
+            You are Mirza Benevis intelligent meeting assistant. Answer the user's question accurately and exclusively based on the meeting transcript and summary below.
+            Be concise, clear, and structured in English. If the information was not mentioned in the meeting, state clearly that it was not discussed.
 
-        سوال کاربر:
-        \(question)
-        """
+            \(summaryContext)
+            Full Meeting Transcript:
+            \(transcript)
+
+            User Question:
+            \(question)
+            """
+        } else {
+            summaryContext = summary.map { "خلاصه قبلی جلسه:\n\($0)\n" } ?? ""
+            prompt = """
+            تو دستیار هوشمند جلسه (میرزا بنویس) هستی. به سوال کاربر با دقت کامل و منحصراً بر اساس متن و اطلاعات این جلسه پاسخ بده.
+            پاسخ باید دقیق، ساختاریافته و به زبان فارسی سلیس باشد. اگر اطلاعاتی در جلسه وجود ندارد، صادقانه بگو در متن جلسه مطرح نشده است.
+
+            \(summaryContext)
+            رونوشت کامل جلسه:
+            \(transcript)
+
+            سوال کاربر:
+            \(question)
+            """
+        }
 
         return try await callGemini(prompt: prompt, apiKey: apiKey, temperature: 0.3)
     }
@@ -273,6 +440,27 @@ enum GeminiService {
     ) async throws -> [UUID: String] {
         guard !segments.isEmpty else { return [:] }
 
+        // If segments count is large, batch in chunks of 75 to avoid output token cutoff
+        let chunkSize = 75
+        if segments.count > chunkSize {
+            var allResults: [UUID: String] = [:]
+            for start in stride(from: 0, to: segments.count, by: chunkSize) {
+                let end = min(start + chunkSize, segments.count)
+                let chunk = Array(segments[start..<end])
+                let chunkResults = try await diarizeChunk(segments: chunk, attendees: attendees, apiKey: apiKey)
+                allResults.merge(chunkResults) { (_, new) in new }
+            }
+            return allResults
+        } else {
+            return try await diarizeChunk(segments: segments, attendees: attendees, apiKey: apiKey)
+        }
+    }
+
+    private static func diarizeChunk(
+        segments: [TranscriptSegment],
+        attendees: [String],
+        apiKey: String
+    ) async throws -> [UUID: String] {
         let myName = AppSettings.userName
         let attendeesList = attendees.isEmpty ? "نامشخص (از متن مکالمه استخراج کن)" : attendees.joined(separator: "، ")
 
@@ -301,7 +489,12 @@ enum GeminiService {
         \(segmentsFormatted)
         """
 
-        let rawResponse = try await callGemini(prompt: prompt, apiKey: apiKey, temperature: 0.1)
+        let rawResponse = try await callGemini(
+            prompt: prompt,
+            apiKey: apiKey,
+            temperature: 0.1,
+            responseMimeType: "application/json"
+        )
 
         var jsonString = rawResponse.trimmingCharacters(in: .whitespacesAndNewlines)
         if jsonString.hasPrefix("```json") {

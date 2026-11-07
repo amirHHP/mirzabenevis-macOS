@@ -1,40 +1,50 @@
 import AVFoundation
 import CoreMedia
 
-enum PCMConverter {
-    static let targetSampleRate: Double = 16000
+/// High-performance cached converter to prevent recreating AVAudioConverter on every audio buffer.
+final class CachedAudioConverter: @unchecked Sendable {
+    private var converter: AVAudioConverter?
+    private var cachedInputFormat: AVAudioFormat?
+    private let outputFormat: AVAudioFormat
 
-    /// Convert CMSampleBuffer (float or int PCM) to 16-bit mono PCM at 16 kHz.
-    static func toPCM16Mono(_ sampleBuffer: CMSampleBuffer) -> Data? {
+    init(targetSampleRate: Double = PCMConverter.targetSampleRate) {
+        self.outputFormat = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: targetSampleRate,
+            channels: 1,
+            interleaved: true
+        )!
+    }
+
+    func convertToPCM16Mono(_ sampleBuffer: CMSampleBuffer) -> Data? {
         guard CMSampleBufferGetNumSamples(sampleBuffer) > 0,
               let formatDesc = CMSampleBufferGetFormatDescription(sampleBuffer),
               let asbdPtr = CMAudioFormatDescriptionGetStreamBasicDescription(formatDesc) else {
             return nil
         }
 
-        let asbd = asbdPtr.pointee
         guard let inputFormat = AVAudioFormat(streamDescription: asbdPtr) else { return nil }
 
-        guard let outputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16,
-            sampleRate: targetSampleRate,
-            channels: 1,
-            interleaved: true
-        ) else { return nil }
-
         var sampleBufferCopy = sampleBuffer
-        guard let pcmBuffer = convertSampleBufferToPCMBuffer(&sampleBufferCopy, format: inputFormat) else {
+        guard let pcmBuffer = PCMConverter.convertSampleBufferToPCMBuffer(&sampleBufferCopy, format: inputFormat) else {
             return nil
         }
 
-        if inputFormat.sampleRate == targetSampleRate && inputFormat.channelCount == 1
-            && inputFormat.commonFormat == .pcmFormatInt16 {
-            return extractInt16Data(from: pcmBuffer)
+        if inputFormat.sampleRate == outputFormat.sampleRate &&
+           inputFormat.channelCount == outputFormat.channelCount &&
+           inputFormat.commonFormat == outputFormat.commonFormat {
+            return PCMConverter.extractInt16Data(from: pcmBuffer)
         }
 
-        guard let converter = AVAudioConverter(from: inputFormat, to: outputFormat) else { return nil }
+        // Cache or recreate converter only if input format changed
+        if converter == nil || cachedInputFormat == nil || cachedInputFormat != inputFormat {
+            converter = AVAudioConverter(from: inputFormat, to: outputFormat)
+            cachedInputFormat = inputFormat
+        }
 
-        let ratio = targetSampleRate / inputFormat.sampleRate
+        guard let converter else { return nil }
+
+        let ratio = outputFormat.sampleRate / inputFormat.sampleRate
         let outFrames = AVAudioFrameCount(Double(pcmBuffer.frameLength) * ratio)
         guard let outBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outFrames) else {
             return nil
@@ -54,10 +64,22 @@ enum PCMConverter {
         converter.convert(to: outBuffer, error: &error, withInputFrom: inputBlock)
         guard error == nil else { return nil }
 
-        return extractInt16Data(from: outBuffer)
+        return PCMConverter.extractInt16Data(from: outBuffer)
+    }
+}
+
+enum PCMConverter {
+    static let targetSampleRate: Double = 16000
+
+    /// Global fallback converter for one-off conversions.
+    private static let sharedCachedConverter = CachedAudioConverter(targetSampleRate: targetSampleRate)
+
+    /// Convert CMSampleBuffer (float or int PCM) to 16-bit mono PCM at 16 kHz.
+    static func toPCM16Mono(_ sampleBuffer: CMSampleBuffer) -> Data? {
+        sharedCachedConverter.convertToPCM16Mono(sampleBuffer)
     }
 
-    private static func convertSampleBufferToPCMBuffer(
+    static func convertSampleBufferToPCMBuffer(
         _ sampleBuffer: inout CMSampleBuffer,
         format: AVAudioFormat
     ) -> AVAudioPCMBuffer? {
@@ -77,7 +99,7 @@ enum PCMConverter {
         return buffer
     }
 
-    private static func extractInt16Data(from buffer: AVAudioPCMBuffer) -> Data? {
+    static func extractInt16Data(from buffer: AVAudioPCMBuffer) -> Data? {
         guard let channelData = buffer.int16ChannelData else { return nil }
         let byteCount = Int(buffer.frameLength) * MemoryLayout<Int16>.size
         return Data(bytes: channelData[0], count: byteCount)

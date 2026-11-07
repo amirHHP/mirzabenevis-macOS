@@ -8,10 +8,23 @@ enum AudioSourceMode: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 
     var label: String {
-        switch self {
-        case .microphone: return "میکروفون"
-        case .systemAudio: return "صدای سیستم"
-        case .both: return "هر دو (میک + سیستم)"
+        localizedLabel(for: LanguageManager.shared.currentLanguage)
+    }
+
+    func localizedLabel(for lang: AppLanguage = LanguageManager.shared.currentLanguage) -> String {
+        switch lang {
+        case .english:
+            switch self {
+            case .microphone: return "Microphone"
+            case .systemAudio: return "System Audio"
+            case .both: return "Both (Mic + System)"
+            }
+        case .persian:
+            switch self {
+            case .microphone: return "میکروفون"
+            case .systemAudio: return "صدای سیستم"
+            case .both: return "هر دو (میک + سیستم)"
+            }
         }
     }
 

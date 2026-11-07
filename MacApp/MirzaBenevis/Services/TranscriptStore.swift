@@ -7,6 +7,7 @@ final class TranscriptStore: ObservableObject {
     @Published var isRecording = false
 
     private let storageURL: URL
+    private let sessionsDirectory: URL
 
     init() {
         let appSupport = FileManager.default.urls(
@@ -16,7 +17,13 @@ final class TranscriptStore: ObservableObject {
         let dir = appSupport.appendingPathComponent("MirzaBenevis", isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         storageURL = dir.appendingPathComponent("sessions.json")
+        sessionsDirectory = dir.appendingPathComponent("sessions", isDirectory: true)
+        try? FileManager.default.createDirectory(at: sessionsDirectory, withIntermediateDirectories: true)
         loadSessions()
+    }
+
+    private func sessionFileURL(for id: UUID) -> URL {
+        sessionsDirectory.appendingPathComponent("\(id.uuidString).json")
     }
 
     func startNewSession(language: String? = nil, title: String? = nil, calendarEventTitle: String? = nil) {
@@ -30,12 +37,31 @@ final class TranscriptStore: ObservableObject {
         isRecording = true
     }
 
-    func appendSegment(_ segment: TranscriptSegment) {
+    func appendSegment(_ segment: TranscriptSegment, targetSessionID: UUID? = nil) {
+        // If targetSessionID is specified and currentSession is different, route to the target session
+        if let targetID = targetSessionID, currentSession?.id != targetID {
+            if let index = sessions.firstIndex(where: { $0.id == targetID }) {
+                sessions[index].segments.append(segment)
+                sessions[index].words.append(contentsOf: segment.words)
+                sessions[index].updatedAt = Date()
+                saveSessions()
+            }
+            return
+        }
+
         guard var session = currentSession else { return }
         session.segments.append(segment)
         session.words.append(contentsOf: segment.words)
         session.updatedAt = Date()
         currentSession = session
+
+        // If recording has already stopped, ensure changes persist to the session list
+        if !isRecording {
+            if let index = sessions.firstIndex(where: { $0.id == session.id }) {
+                sessions[index] = session
+            }
+            saveSessions()
+        }
     }
 
     func appendWords(_ words: [TranscriptWord]) {
@@ -100,6 +126,32 @@ final class TranscriptStore: ObservableObject {
                 saveSessions()
             }
         }
+    }
+
+    func addActionItem(_ item: MeetingActionItem, to sessionID: UUID) {
+        if let current = currentSession, current.id == sessionID {
+            var updated = current
+            updated.actionItems.append(item)
+            currentSession = updated
+        }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            sessions[index].actionItems.append(item)
+            sessions[index].updatedAt = Date()
+        }
+        saveSessions()
+    }
+
+    func deleteActionItem(_ itemID: UUID, from sessionID: UUID) {
+        if let current = currentSession, current.id == sessionID {
+            var updated = current
+            updated.actionItems.removeAll { $0.id == itemID }
+            currentSession = updated
+        }
+        if let index = sessions.firstIndex(where: { $0.id == sessionID }) {
+            sessions[index].actionItems.removeAll { $0.id == itemID }
+            sessions[index].updatedAt = Date()
+        }
+        saveSessions()
     }
 
     func updateTitle(_ title: String, for sessionID: UUID) {
@@ -249,11 +301,30 @@ final class TranscriptStore: ObservableObject {
     }
 
     func deleteSession(_ session: TranscriptionSession) {
+        // 1. Delete associated audio recording file if it exists to prevent disk leaks
+        if let audioPath = session.audioFilePath, !audioPath.isEmpty {
+            if FileManager.default.fileExists(atPath: audioPath) {
+                do {
+                    try FileManager.default.removeItem(atPath: audioPath)
+                    print("[TranscriptStore] ✅ Deleted audio recording file: \(audioPath)")
+                } catch {
+                    print("[TranscriptStore] ⚠️ Failed to delete audio file at \(audioPath): \(error)")
+                }
+            }
+        }
+
+        // 2. Delete the individual session file
+        let fileURL = sessionFileURL(for: session.id)
+        if FileManager.default.fileExists(atPath: fileURL.path) {
+            try? FileManager.default.removeItem(at: fileURL)
+            print("[TranscriptStore] ✅ Deleted session file: \(fileURL.lastPathComponent)")
+        }
+
+        // 3. Update memory state
         sessions.removeAll { $0.id == session.id }
         if currentSession?.id == session.id {
             currentSession = nil
         }
-        saveSessions()
     }
 
     func loadSession(_ session: TranscriptionSession) {
@@ -261,29 +332,61 @@ final class TranscriptStore: ObservableObject {
     }
 
     private func loadSessions() {
-        guard FileManager.default.fileExists(atPath: storageURL.path) else { return }
+        // 1. Check for legacy sessions.json and migrate to per-session files
+        if FileManager.default.fileExists(atPath: storageURL.path) {
+            do {
+                let data = try Data(contentsOf: storageURL)
+                let legacySessions = try JSONDecoder().decode([TranscriptionSession].self, from: data)
+                print("[TranscriptStore] Migrating \(legacySessions.count) legacy sessions to per-session files...")
+                for s in legacySessions {
+                    saveSessionFile(s)
+                }
+                let backupURL = storageURL.deletingPathExtension().appendingPathExtension("json.migrated")
+                try? FileManager.default.moveItem(at: storageURL, to: backupURL)
+                print("[TranscriptStore] ✅ Legacy sessions.json migrated successfully")
+            } catch {
+                print("[TranscriptStore] Failed to migrate legacy sessions: \(error)")
+            }
+        }
+
+        // 2. Load all sessions from the sessions directory
+        guard let files = try? FileManager.default.contentsOfDirectory(at: sessionsDirectory, includingPropertiesForKeys: nil) else {
+            return
+        }
+
+        var loaded: [TranscriptionSession] = []
+        let jsonDecoder = JSONDecoder()
+
+        for fileURL in files where fileURL.pathExtension == "json" {
+            guard let data = try? Data(contentsOf: fileURL),
+                  let session = try? jsonDecoder.decode(TranscriptionSession.self, from: data) else {
+                continue
+            }
+            loaded.append(session)
+        }
+
+        sessions = loaded.sorted { $0.createdAt > $1.createdAt }
+        print("[TranscriptStore] ✅ Loaded \(sessions.count) sessions from per-session storage")
+    }
+
+    func saveSessionFile(_ session: TranscriptionSession) {
+        let fileURL = sessionFileURL(for: session.id)
         do {
-            let data = try Data(contentsOf: storageURL)
-            sessions = try JSONDecoder().decode([TranscriptionSession].self, from: data)
+            let data = try JSONEncoder().encode(session)
+            try data.write(to: fileURL, options: .atomic)
         } catch {
-            print("Failed to load sessions: \(error)")
+            print("[TranscriptStore] ❌ Failed to save session \(session.id): \(error)")
         }
     }
 
     private func saveSessions() {
-        var all = sessions
-        if let current = currentSession,
-           !all.contains(where: { $0.id == current.id }) {
-            all.insert(current, at: 0)
-        } else if let current = currentSession,
-                  let index = all.firstIndex(where: { $0.id == current.id }) {
-            all[index] = current
-        }
-        do {
-            let data = try JSONEncoder().encode(all)
-            try data.write(to: storageURL, options: .atomic)
-        } catch {
-            print("Failed to save sessions: \(error)")
+        if let current = currentSession {
+            if let index = sessions.firstIndex(where: { $0.id == current.id }) {
+                sessions[index] = current
+            } else {
+                sessions.insert(current, at: 0)
+            }
+            saveSessionFile(current)
         }
     }
 }

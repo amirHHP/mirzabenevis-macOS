@@ -1,11 +1,24 @@
 import Foundation
 
+enum PermissionErrorType: Equatable {
+    case microphone
+    case systemAudio
+    case both
+}
+
 @MainActor
 final class RecordingCoordinator: ObservableObject {
     @Published var statusMessage = "آماده"
+    @Published var permissionError: PermissionErrorType? = nil
     @Published var isActive = false
     @Published var selectedLanguage: String? = AppSettings.selectedLanguage
-    @Published var audioSource: AudioSourceMode = AppSettings.audioSource
+    @Published var audioSource: AudioSourceMode = AppSettings.audioSource {
+        didSet {
+            if permissionError == .systemAudio && audioSource == .microphone {
+                permissionError = nil
+            }
+        }
+    }
 
     let micCapture = AudioCaptureService()
     let systemCapture = SystemAudioCaptureService()
@@ -33,6 +46,10 @@ final class RecordingCoordinator: ObservableObject {
     /// Accumulator for saving the full audio as a WAV file
     private var audioRecording = Data()
     private var audioChunkCount = 0
+
+    /// Serial execution chain for in-flight audio transcription chunks
+    private var lastTranscriptionTask: Task<Void, Never>?
+    private var activeSessionID: UUID?
 
     init(transcriptStore: TranscriptStore) {
         self.transcriptStore = transcriptStore
@@ -135,12 +152,17 @@ final class RecordingCoordinator: ObservableObject {
             pcmBuffer.removeAll(keepingCapacity: true)
             currentChunkSpeaker = .unknown
 
-            Task {
-                await transcribeChunk(
+            let sessionID = activeSessionID
+            let previousTask = lastTranscriptionTask
+            lastTranscriptionTask = Task { [weak self] in
+                _ = await previousTask?.value
+                guard let self else { return }
+                await self.transcribeChunk(
                     chunkToTranscribe,
                     speaker: speaker,
                     startTime: chunkStartTime,
-                    endTime: chunkEndTime
+                    endTime: chunkEndTime,
+                    targetSessionID: sessionID
                 )
             }
         } else if !isSpeakingNow && bufferSize > 16000 * 2 * 6 && !wasSpeaking {
@@ -196,7 +218,8 @@ final class RecordingCoordinator: ObservableObject {
         _ chunk: Data,
         speaker: SpeakerType,
         startTime: Double,
-        endTime: Double
+        endTime: Double,
+        targetSessionID: UUID? = nil
     ) async {
         print("[RecordingCoordinator] transcribeChunk called, size: \(chunk.count) bytes, speaker: \(speaker.rawValue)")
 
@@ -278,7 +301,7 @@ final class RecordingCoordinator: ObservableObject {
             voiceEmbedding: embedding
         )
 
-        transcriptStore.appendSegment(segment)
+        transcriptStore.appendSegment(segment, targetSessionID: targetSessionID)
 
         // Update context prompt with the tail of the recent transcript (max 10 words)
         let wordsList = text.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
@@ -314,32 +337,41 @@ final class RecordingCoordinator: ObservableObject {
         switch audioSource {
         case .microphone:
             guard await micCapture.requestPermission() else {
-                statusMessage = "دسترسی میکروفون رد شد. لطفاً دسترسی به میکروفون را در تنظیمات سیستم فعال کنید."
+                permissionError = .microphone
+                statusMessage = "دسترسی میکروفون رد شد."
                 return
             }
         case .systemAudio:
             guard await systemCapture.requestPermission() else {
-                statusMessage = "دسترسی Screen Recording رد شد. اگر دسترسی داده‌اید، برنامه را ببندید و دوباره باز کنید."
+                permissionError = .systemAudio
+                statusMessage = "دسترسی Screen Recording رد شد."
                 return
             }
         case .both:
             let micOK = await micCapture.requestPermission()
             let sysOK = await systemCapture.requestPermission()
             if !micOK && !sysOK {
+                permissionError = .both
                 statusMessage = "دسترسی میکروفون و Screen Recording رد شد."
             } else if !micOK {
-                statusMessage = "دسترسی میکروفون رد شد. لطفاً دسترسی به میکروفون را در تنظیمات سیستم فعال کنید."
+                permissionError = .microphone
+                statusMessage = "دسترسی میکروفون رد شد."
             } else if !sysOK {
-                statusMessage = "دسترسی Screen Recording (صدای سیستم) رد شد. اگر دسترسی داده‌اید، برنامه را ببندید و دوباره باز کنید."
+                permissionError = .systemAudio
+                statusMessage = "دسترسی Screen Recording (صدای سیستم) رد شد."
             }
             guard micOK && sysOK else {
                 return
             }
         }
+        permissionError = nil
 
         // Look up active calendar meeting title if available
+        lastTranscriptionTask?.cancel()
+        lastTranscriptionTask = nil
         let calTitle = CalendarService.shared.currentMeetingTitle()
         transcriptStore.startNewSession(language: selectedLanguage, calendarEventTitle: calTitle)
+        activeSessionID = transcriptStore.currentSession?.id
 
         do {
             switch audioSource {
@@ -368,17 +400,42 @@ final class RecordingCoordinator: ObservableObject {
             let chunk = pcmBuffer
             let start = Double(totalBytesProcessed) / (16000.0 * 2.0)
             let end = start + (Double(chunk.count) / (16000.0 * 2.0))
-            await transcribeChunk(chunk, speaker: currentChunkSpeaker, startTime: start, endTime: end)
+            let speaker = currentChunkSpeaker
+            let sessionID = activeSessionID
+            let previousTask = lastTranscriptionTask
+            lastTranscriptionTask = Task { [weak self] in
+                _ = await previousTask?.value
+                guard let self else { return }
+                await self.transcribeChunk(
+                    chunk,
+                    speaker: speaker,
+                    startTime: start,
+                    endTime: end,
+                    targetSessionID: sessionID
+                )
+            }
             pcmBuffer.removeAll()
+        }
+
+        // Wait for all in-flight transcription tasks to finish before stopping session
+        if let pending = lastTranscriptionTask {
+            statusMessage = "در حال تکمیل پردازش صوت..."
+            _ = await pending.value
+            lastTranscriptionTask = nil
         }
 
         // Save audio file
         let audioPath = saveAudioFile()
 
         transcriptStore.stopSession(audioFilePath: audioPath)
+        activeSessionID = nil
         isActive = false
         statusMessage = "ضبط متوقف شد"
         print("[RecordingCoordinator] Recording stopped. Audio chunks: \(audioChunkCount), total bytes: \(audioRecording.count)")
+    }
+
+    func dismissPermissionError() {
+        permissionError = nil
     }
 
     func copyCurrentTranscript() {

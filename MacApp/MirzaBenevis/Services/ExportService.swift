@@ -69,9 +69,9 @@ enum ExportService {
     }
 
     static func generatePDF(session: TranscriptionSession) throws -> Data {
-        let pageWidth: CGFloat = 595
-        let pageHeight: CGFloat = 842
-        let margin: CGFloat = 50
+        let pageWidth: CGFloat = 595.28  // A4
+        let pageHeight: CGFloat = 841.89 // A4
+        let margin: CGFloat = 46
         let contentWidth = pageWidth - margin * 2
 
         let pdfData = NSMutableData()
@@ -82,71 +82,186 @@ enum ExportService {
             throw ExportError.pdfCreationFailed
         }
 
-        let rtlStyle = NSMutableParagraphStyle()
-        rtlStyle.baseWritingDirection = .rightToLeft
-        rtlStyle.alignment = .right
-        rtlStyle.lineSpacing = 4
+        let isRTL = LanguageManager.shared.currentLanguage == .persian
 
-        let ltrStyle = NSMutableParagraphStyle()
-        ltrStyle.lineSpacing = 4
+        let baseParagraphStyle = NSMutableParagraphStyle()
+        baseParagraphStyle.baseWritingDirection = isRTL ? .rightToLeft : .leftToRight
+        baseParagraphStyle.alignment = isRTL ? .right : .left
+        baseParagraphStyle.lineSpacing = 4
 
-        func drawPage(title: String, subtitle: String? = nil, body: String, isRTL: Bool = true) {
-            context.beginPDFPage(nil)
-            var y: CGFloat = pageHeight - margin
+        let centerStyle = NSMutableParagraphStyle()
+        centerStyle.alignment = .center
 
-            let titleAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.boldSystemFont(ofSize: 18),
-                .paragraphStyle: isRTL ? rtlStyle : ltrStyle
+        var currentPage = 0
+        var y: CGFloat = 0
+
+        func drawFooter(page: Int) {
+            let footerText = isRTL ? "صفحه \(page)" : "Page \(page)"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9),
+                .foregroundColor: NSColor.tertiaryLabelColor,
+                .paragraphStyle: centerStyle
             ]
-            let titleRect = CGRect(x: margin, y: y - 28, width: contentWidth, height: 28)
-            (title as NSString).draw(in: titleRect, withAttributes: titleAttrs)
-            y -= 40
+            let rect = CGRect(x: margin, y: margin - 22, width: contentWidth, height: 16)
+            (footerText as NSString).draw(in: rect, withAttributes: attrs)
+        }
 
-            if let subtitle {
-                let metaAttrs: [NSAttributedString.Key: Any] = [
-                    .font: NSFont.systemFont(ofSize: 10),
-                    .foregroundColor: NSColor.secondaryLabelColor,
-                    .paragraphStyle: isRTL ? rtlStyle : ltrStyle
-                ]
-                (subtitle as NSString).draw(in: CGRect(x: margin, y: y - 16, width: contentWidth, height: 16), withAttributes: metaAttrs)
-                y -= 26
+        func drawRunningHeader() {
+            let headerText = "\(session.title) — Mirza Benevis"
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 9),
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .paragraphStyle: baseParagraphStyle
+            ]
+            let rect = CGRect(x: margin, y: pageHeight - margin + 8, width: contentWidth, height: 16)
+            (headerText as NSString).draw(in: rect, withAttributes: attrs)
+
+            // Header line
+            context.saveGState()
+            context.setStrokeColor(NSColor.separatorColor.cgColor)
+            context.setLineWidth(0.5)
+            context.move(to: CGPoint(x: margin, y: pageHeight - margin + 4))
+            context.addLine(to: CGPoint(x: pageWidth - margin, y: pageHeight - margin + 4))
+            context.strokePath()
+            context.restoreGState()
+        }
+
+        func startNewPage() {
+            if currentPage > 0 {
+                drawFooter(page: currentPage)
+                context.endPDFPage()
+            }
+            currentPage += 1
+            context.beginPDFPage(nil)
+            y = pageHeight - margin
+
+            if currentPage > 1 {
+                drawRunningHeader()
+                y -= 20
+            }
+        }
+
+        func drawDivider() {
+            if y - 16 < margin + 30 {
+                startNewPage()
+            }
+            y -= 8
+            context.saveGState()
+            context.setStrokeColor(NSColor.separatorColor.cgColor)
+            context.setLineWidth(0.5)
+            context.move(to: CGPoint(x: margin, y: y))
+            context.addLine(to: CGPoint(x: pageWidth - margin, y: y))
+            context.strokePath()
+            context.restoreGState()
+            y -= 12
+        }
+
+        func drawText(
+            _ text: String,
+            font: NSFont,
+            color: NSColor = .textColor,
+            spacingAfter: CGFloat = 8,
+            forceNewPageIfNeeded: Bool = false
+        ) {
+            guard !text.isEmpty else { return }
+
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: font,
+                .foregroundColor: color,
+                .paragraphStyle: baseParagraphStyle
+            ]
+            let attrStr = NSAttributedString(string: text, attributes: attrs)
+
+            let boundingRect = attrStr.boundingRect(
+                with: CGSize(width: contentWidth, height: .greatestFiniteMagnitude),
+                options: [.usesLineFragmentOrigin, .usesFontLeading]
+            )
+            let blockHeight = ceil(boundingRect.height)
+
+            if forceNewPageIfNeeded && (y - blockHeight < margin + 30) {
+                startNewPage()
+            } else if y - blockHeight < margin + 30 {
+                // If text fits in a whole page, start new page
+                if blockHeight <= (pageHeight - margin * 2 - 40) {
+                    startNewPage()
+                } else {
+                    // Very long text: split by paragraphs / lines
+                    let lines = text.components(separatedBy: "\n")
+                    for line in lines {
+                        drawText(line, font: font, color: color, spacingAfter: 4, forceNewPageIfNeeded: true)
+                    }
+                    return
+                }
             }
 
-            let bodyAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.systemFont(ofSize: 11),
-                .paragraphStyle: isRTL ? rtlStyle : ltrStyle
-            ]
-
-            let bodyHeight = max(50, y - margin)
-            (body as NSString).draw(
-                in: CGRect(x: margin, y: margin, width: contentWidth, height: bodyHeight),
-                withAttributes: bodyAttrs
-            )
-            context.endPDFPage()
+            let drawRect = CGRect(x: margin, y: y - blockHeight, width: contentWidth, height: blockHeight)
+            attrStr.draw(with: drawRect, options: [.usesLineFragmentOrigin, .usesFontLeading])
+            y -= (blockHeight + spacingAfter)
         }
 
-        let meta = "\(session.createdAt.formatted()) | \(session.wordCount) کلمه\(session.calendarEventTitle.map { " | رویداد: \($0)" } ?? "")"
+        // --- Begin document ---
+        startNewPage()
 
-        // Page 1: Dialogue transcript
-        let transcriptText = session.formattedDialogue.isEmpty ? "—" : session.formattedDialogue
-        drawPage(title: session.title, subtitle: meta, body: transcriptText)
+        // Document Title
+        drawText(session.title, font: NSFont.boldSystemFont(ofSize: 20), color: .textColor, spacingAfter: 6)
 
-        // Page 2: Summary (if present)
-        if let summary = session.summary, !summary.isEmpty {
-            drawPage(title: "خلاصه هوشمند جلسه", subtitle: session.title, body: summary)
+        // Metadata subtitle
+        let meta = "\(session.createdAt.formatted()) | \(session.wordCount) \(isRTL ? "کلمه" : "words")\(session.calendarEventTitle.map { isRTL ? " | رویداد: \($0)" : " | Event: \($0)" } ?? "")"
+        drawText(meta, font: NSFont.systemFont(ofSize: 10), color: .secondaryLabelColor, spacingAfter: 12)
+
+        drawDivider()
+
+        // 1. Summary Section (if present)
+        if let summary = session.summary, !summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let summaryTitle = isRTL ? "خلاصه هوشمند جلسه" : "Meeting Summary"
+            drawText(summaryTitle, font: NSFont.boldSystemFont(ofSize: 14), color: .systemIndigo, spacingAfter: 6, forceNewPageIfNeeded: true)
+            drawText(summary, font: NSFont.systemFont(ofSize: 11), color: .textColor, spacingAfter: 12)
+            drawDivider()
         }
 
-        // Page 3: Action Items (if present)
+        // 2. Action Items Section (if present)
         if !session.actionItems.isEmpty {
-            let itemsText = session.actionItems.map { item in
+            let itemsTitle = isRTL ? "اقدامات بعدی و وظایف (Action Items)" : "Action Items & Next Steps"
+            drawText(itemsTitle, font: NSFont.boldSystemFont(ofSize: 14), color: .systemGreen, spacingAfter: 8, forceNewPageIfNeeded: true)
+
+            for item in session.actionItems {
                 let check = item.isCompleted ? "[✓]" : "[ ]"
                 let assignee = item.assignee.map { " (\($0))" } ?? ""
-                return "\(check) \(item.text)\(assignee)"
-            }.joined(separator: "\n\n")
-            drawPage(title: "اقدامات بعدی و وظایف (Action Items)", subtitle: session.title, body: itemsText)
+                let itemLine = "\(check) \(item.text)\(assignee)"
+                let itemColor: NSColor = item.isCompleted ? .secondaryLabelColor : .textColor
+                drawText(itemLine, font: NSFont.systemFont(ofSize: 11), color: itemColor, spacingAfter: 4, forceNewPageIfNeeded: false)
+            }
+            y -= 4
+            drawDivider()
         }
 
+        // 3. Transcript Section
+        let transcriptTitle = isRTL ? "رونوشت کامل (گفتگو)" : "Full Transcript"
+        drawText(transcriptTitle, font: NSFont.boldSystemFont(ofSize: 14), color: .systemBlue, spacingAfter: 10, forceNewPageIfNeeded: true)
+
+        if !session.segments.isEmpty {
+            for segment in session.segments {
+                let speakerLabel = "[\(segment.speakerDisplayName)] (\(segment.formattedTime))"
+                let speakerColor: NSColor = (segment.speaker == .user) ? .systemBlue : .systemPurple
+
+                // Ensure speaker header and at least first line of text stay together
+                if y - 45 < margin + 30 {
+                    startNewPage()
+                }
+
+                drawText(speakerLabel, font: NSFont.boldSystemFont(ofSize: 11), color: speakerColor, spacingAfter: 2)
+                drawText(segment.text, font: NSFont.systemFont(ofSize: 11), color: .textColor, spacingAfter: 10)
+            }
+        } else {
+            let fallbackText = session.formattedDialogue.isEmpty ? "—" : session.formattedDialogue
+            drawText(fallbackText, font: NSFont.systemFont(ofSize: 11), color: .textColor, spacingAfter: 10)
+        }
+
+        // Finalize last page
+        drawFooter(page: currentPage)
+        context.endPDFPage()
         context.closePDF()
+
         return pdfData as Data
     }
 
