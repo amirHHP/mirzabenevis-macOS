@@ -26,5 +26,6 @@ build/
 build_whisper/
 build_output/
 *.iconset/
+scratch/
 sh-thd-*
 

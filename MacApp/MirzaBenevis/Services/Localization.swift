@@ -224,6 +224,9 @@ public enum L10n {
         case checkingForUpdates
         case upToDate
         case downloadUpdate
+        case supportAndDonation
+        case donationDescription
+        case donateButton
         case whisperSectionTitle
         case whisperModel
         case downloadModel
@@ -415,6 +418,9 @@ public enum L10n {
                 case .checkingForUpdates: return "Checking for updates on GitHub..."
                 case .upToDate: return "Mirza Benevis is up to date"
                 case .downloadUpdate: return "Download Update (DMG)"
+                case .supportAndDonation: return "Support & Donation"
+                case .donationDescription: return "Mirza Benevis is free and open-source. If it helps keep your meetings organized and saves you time, consider supporting its ongoing development and maintenance."
+                case .donateButton: return "Donate & Support"
                 case .whisperSectionTitle: return "Whisper On-Device Model"
                 case .whisperModel: return "Model Size"
                 case .downloadModel: return "Download / Update Model"
@@ -605,6 +611,9 @@ public enum L10n {
                 case .checkingForUpdates: return "در حال بررسی نسخه جدید در گیت‌هاب..."
                 case .upToDate: return "میرزا بنویس به‌روز است"
                 case .downloadUpdate: return "دانلود نسخه جدید (DMG)"
+                case .supportAndDonation: return "حمایت مالی از میرزا بنویس"
+                case .donationDescription: return "میرزا بنویس یک ابزار کاملاً رایگان و متن‌باز است. اگر این برنامه به منظم‌تر شدن جلسات و صرفه‌جویی در وقت شما کمک کرده است، با دونیت کردن می‌توانید به توسعه و نگهداری مداوم آن کمک کنید."
+                case .donateButton: return "حمایت مالی (دونیت)"
                 case .whisperSectionTitle: return "مدل whisper.cpp (پردازش روی دستگاه)"
                 case .whisperModel: return "اندازه مدل"
                 case .downloadModel: return "دانلود / به‌روزرسانی مدل"

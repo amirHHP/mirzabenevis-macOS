@@ -85,6 +85,19 @@ struct SettingsView: View {
         .environment(\.layoutDirection, langManager.layoutDirection)
         .navigationTitle(L10n.tr(.settingsTitle))
         .toolbar {
+            ToolbarItem(placement: .automatic) {
+                Button {
+                    NSWorkspace.shared.open(AppSettings.donationURL)
+                } label: {
+                    HStack(spacing: 5) {
+                        Image(systemName: "heart.fill")
+                            .foregroundStyle(.pink)
+                        Text(L10n.tr(.donateButton))
+                    }
+                }
+                .help(L10n.tr(.supportAndDonation))
+            }
+
             ToolbarItem(placement: .confirmationAction) {
                 Button(L10n.tr(.close)) {
                     dismiss()
@@ -284,6 +297,36 @@ struct SettingsView: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
+                }
+            }
+
+            // Support & Donation Card
+            settingsCard(
+                title: L10n.tr(.supportAndDonation),
+                icon: "heart.fill",
+                iconColor: .pink
+            ) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(L10n.tr(.donationDescription))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        NSWorkspace.shared.open(AppSettings.donationURL)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "heart.fill")
+                                .foregroundStyle(.pink)
+                            Text(L10n.tr(.donateButton))
+                                .fontWeight(.medium)
+                            Image(systemName: "arrow.up.forward.app")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             }
         }

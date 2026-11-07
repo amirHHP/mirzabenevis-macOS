@@ -10,8 +10,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/amirHHP/mirzabenevis-macOS/releases/latest">
-    <img src="https://img.shields.io/github/v/release/amirHHP/mirzabenevis-macOS?label=نسخه%20پایدار&color=6366f1" alt="Latest Release" />
+  <a href="https://github.com/amirHHP/mirzabenevis-recorder3/releases/latest">
+    <img src="https://img.shields.io/github/v/release/amirHHP/mirzabenevis-recorder3?label=نسخه%20پایدار&color=6366f1" alt="Latest Release" />
   </a>
   <img src="https://img.shields.io/badge/سیستم‌عامل-macOS%2014%2B%20(Sonoma%20%2F%20Sequoia)-000000?logo=apple" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/پردازنده-Apple%20Silicon%20(M1--M4)%20%26%20Intel-blue" alt="Apple Silicon" />
@@ -19,6 +19,9 @@
   <img src="https://img.shields.io/badge/حریم%20خصوصی-۱۰۰٪%20آفلاین%20(On--Device)-green" alt="100% Offline" />
   <a href="LICENSE">
     <img src="https://img.shields.io/badge/لایسنس-MIT%20(رایگان%20و%20متن‌باز)-orange" alt="MIT License" />
+  </a>
+  <a href="https://pay.theminiceo.ir/link/783576">
+    <img src="https://img.shields.io/badge/Donate-حمایت%20مالی-e11d48" alt="Donate" />
   </a>
 </p>
 
@@ -33,14 +36,14 @@
 <br>
 
 <p align="center">
-  <a href="https://github.com/amirHHP/mirzabenevis-macOS/releases/download/v2.0.0/MirzaBenevis-v2.0.0.dmg">
-    <img src="https://img.shields.io/badge/دانلود%20مستقیم%20برای%20مک-MirzaBenevis.dmg%20(v2.0.0)-4f46e5?style=for-the-badge&logo=apple&logoColor=white" alt="Download DMG" height="48" />
+  <a href="https://github.com/amirHHP/mirzabenevis-recorder3/releases/latest">
+    <img src="https://img.shields.io/badge/دانلود%20مستقیم%20برای%20مک-MirzaBenevis.dmg-4f46e5?style=for-the-badge&logo=apple&logoColor=white" alt="Download DMG" height="48" />
   </a>
 </p>
 
 <p align="center">
-  <sub>بدون نیاز به ترمینال یا ابزارهای جانبی • سازگار با مک‌های M1, M2, M3, M4 و پردازنده‌های Intel</sub><br>
-  <sub>سایر گزینه‌ها: 📦 <a href="https://github.com/amirHHP/mirzabenevis-macOS/releases/download/v2.0.0/MirzaBenevis-v2.0.0.zip">دانلود نسخه فشرده (ZIP)</a> | 🔗 <a href="https://github.com/amirHHP/mirzabenevis-macOS/releases">صفحه تمام ریلیزها در گیت‌هاب</a></sub>
+  <sub>بدون نیاز به ابزارهای جانبی • سازگار با مک‌های Apple Silicon (M1-M4) و پردازنده‌های Intel</sub><br>
+  <sub>🔗 <a href="https://github.com/amirHHP/mirzabenevis-recorder3/releases">صفحه تمام ریلیزها در گیت‌هاب</a> | 💻 <a href="#-روش-دوم-نصب-از-طریق-گیت-و-سورس-کد-پیشنهادی-برای-دریافت-مداوم-آپدیت‌ها">نصب و آپدیت سریع از طریق گیت</a></sub>
 </p>
 
 ---
@@ -114,26 +117,69 @@
 
 ---
 
-## 🚀 راهنمای نصب و شروع سریع در ۳ گام
+## 🚀 راهنمای نصب و راه‌اندازی
 
-برای استفاده از میرزا بنویس، **هیچ نیازی به داشتن دانش برنامه‌نویسی یا کار با ترمینال ندارید!**
+برای استفاده از میرزا بنویس می‌توانید از یکی از دو روش زیر استفاده کنید:
 
+### روش اول: نصب از طریق گیت (پیشنهادی — برای دریافت مداوم آپدیت‌ها) 🌟
+
+اگر می‌خواهید همیشه جدیدترین قابلیت‌ها و رفع باگ‌ها را با یک دستور ساده دریافت کنید، این روش بهترین گزینه است:
+
+#### ۱. دریافت پروژه و نصب اولیه:
+ترمینال مک را باز کرده و دستورات زیر را اجرا کنید:
+
+```bash
+# ۱. دریافت ریپازیتوری
+git clone https://github.com/amirHHP/mirzabenevis-recorder3.git
+cd mirzabenevis-recorder3
+
+# ۲. بیلد خودکار و نصب در Applications
+chmod +x scripts/install.sh
+./scripts/install.sh
 ```
- 1. دانلود DMG       2. کشیدن به Applications       3. شروع ضبط از منوبار
-┌──────────────┐       ┌──────────────────────┐       ┌─────────────────┐
-│ دانلود فایل  │  ──>  │ Drag & Drop به پوشه  │  ──>  │ روی آیکون برنامه │
-│  .dmg نصبی   │       │     Applications     │       │ در منوبار بزنید │
-└──────────────┘       └──────────────────────┘       └─────────────────┘
+
+اسکریپت `install.sh` تمام وابستگی‌ها و موتور Whisper را کامپایل کرده، آیکون و برنامه نهایی را می‌سازد، آن را مستقیماً به پوشه **Applications** سیستم شما منتقل می‌کند و مجوزهای امنیتی لازم را تنظیم می‌نماید. پس از اتمام، آیکون برنامه در منوبار و پوشه Applications شما آماده استفاده است!
+
+#### ۲. دریافت آپدیت‌های جدید در آینده:
+هر زمان که قابلیت جدیدی به پروژه اضافه شد، کافیست در پوشه پروژه دستورات زیر را بزنید تا برنامه به‌طور خودکار به آخرین نسخه به‌روزرسانی و جایگزین شود:
+
+```bash
+cd mirzabenevis-recorder3
+git pull
+./scripts/install.sh
 ```
 
-1. فایل **[MirzaBenevis-v2.0.0.dmg](https://github.com/amirHHP/mirzabenevis-macOS/releases/download/v2.0.0/MirzaBenevis-v2.0.0.dmg)** را دانلود کنید.
+---
+
+### روش دوم: دانلود مستقیم فایل نصبی (DMG) 📦
+
+اگر تمایلی به استفاده از ترمینال ندارید:
+
+1. آخرین فایل **[MirzaBenevis.dmg](https://github.com/amirHHP/mirzabenevis-recorder3/releases/latest)** را از صفحه ریلیزها دانلود کنید.
 2. فایل DMG را باز کرده و آیکون **Mirza Benevis** را به داخل پوشه **Applications** بکشید.
-3. برنامه را اجرا کنید؛ آیکون برنامه در بالای صفحه (منوبار مک) ظاهر می‌شود.
-4. در اولین اجرا، مجوزهای **میکروفون** و **ضبط صفحه (System Audio)** را تأیید کنید.
-5. وارد جلسه شوید، منبع صدا را روی «صدای سیستم» یا «میکروفون + سیستم» بگذارید و دکمه **شروع ضبط** را بزنید!
+3. برنامه را از پوشه Applications باز کنید؛ آیکون برنامه در منوبار بالای مک ظاهر می‌شود.
+
+> [!IMPORTANT]
+> **رفع خطای امنیتی مک (Gatekeeper):**  
+> چنانچه هنگام اجرای برنامه روی مک دیگر با پیام خطای:  
+> `“Mirza Benevis” is damaged and can’t be opened. You should move it to the Trash.`  
+> یا  
+> `“Mirza Benevis” cannot be opened because the developer cannot be verified`  
+> مواجه شدید، به دلیل عدم امضای رسمی توسط لایسنس پولی اپل، مک‌او‌اس فایل را موقتاً قرنطینه می‌کند. برای حل دائمی این مشکل کافیست **یک‌بار** دستور زیر را در ترمینال مک اجرا کنید:
+> ```bash
+> xattr -cr "/Applications/Mirza Benevis.app"
+> ```
+> *(یا به مسیر **System Settings > Privacy & Security** بروید، به پایین اسکرول کنید و روی **Open Anyway** کلیک نمایید).*
+
+---
+
+### ۳. مجوزهای لازم در اولین اجرا
+در اولین اجرا:
+1. مجوزهای **میکروفون (Microphone)** و **ضبط صفحه و صدا (Screen Recording & System Audio)** را تأیید کنید.
+2. وارد جلسه شوید، منبع صدا را روی «صدای سیستم» یا «میکروفون + سیستم» بگذارید و دکمه **شروع ضبط** را بزنید!
 
 > [!TIP]
-> **انتخاب مدل هوش مصنوعی:** در اولین اجرا، مدل سبک `base` فعال است. برای رسیدن به بالاترین کیفیت در زبان فارسی، وارد بخش **تنظیمات** شده و مدل **Large v3 Turbo (~1.6 GB)** را دانلود نمایید.
+> **انتخاب مدل هوش مصنوعی:** در اولین اجرا، مدل سبک `base` فعال است. برای رسیدن به بالاترین کیفیت در زبان فارسی، وارد بخش **تنظیمات** شده و مدل **Large v3 Turbo (~1.6 GB)** یا مدل‌های فاین‌تیون فارسی را انتخاب و دانلود نمایید.
 
 ---
 
@@ -163,21 +209,23 @@
 - ابزار CMake (`brew install cmake`)
 - پایتون 3
 
-### مراحل بیلد:
+### ۱. بیلد دستی و نصب برنامه (بدون نیاز به Xcode):
 ```bash
-# ۱. دریافت ریپازیتوری
-git clone https://github.com/amirHHP/mirzabenevis-macOS.git
-cd mirzabenevis-macOS
+# دریافت ریپازیتوری
+git clone https://github.com/amirHHP/mirzabenevis-recorder3.git
+cd mirzabenevis-recorder3
 
-# ۲. اجرای اسکریپت آماده‌سازی خودکار
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+# بیلد خودکار و نصب در Applications
+chmod +x scripts/install.sh
+./scripts/install.sh
 
-# ۳. یا کامپایل دستی موتور whisper.xcframework و پروژه Xcode:
-./scripts/build_whisper.sh
-python3 scripts/generate_xcode_project.py
+# یا فقط بیلد فایل‌های خروجی بدون نصب در Applications:
+./scripts/build_standalone.sh
+```
 
-# ۴. باز کردن پروژه در Xcode
+### ۲. ویرایش و توسعه کد در Xcode:
+برای باز کردن و توسعه پروژه در نرم‌افزار Xcode:
+```bash
 open MacApp/MirzaBenevis.xcodeproj
 ```
 
@@ -226,7 +274,17 @@ open MacApp/MirzaBenevis.xcodeproj
 
 اگر میرزا بنویس به منظم شدن جلسات و صرفه‌جویی در وقت شما کمک کرده است، با **ستاره دادن (⭐️ Star)** به این ریپازیتوری در گیت‌هاب و معرفی آن به دوستان و همکارانتان از پروژه حمایت کنید!
 
-گزارش باگ‌ها و ارسال پیشنهادات از طریق [GitHub Issues](https://github.com/amirHHP/mirzabenevis-macOS/issues) بسیار استقبال می‌شود.
+همچنین جهت کمک به نگهداری سرورها، مدل‌ها و توسعه مداوم این ابزار آزاد و رایگان، می‌توانید از طریق درگاه زیر از پروژه حمایت مالی نمایید:
+
+<p align="center">
+  <a href="https://pay.theminiceo.ir/link/783576">
+    <img src="https://img.shields.io/badge/حمایت%20مالی-Donate%20Now-e11d48?style=for-the-badge&logo=heart&logoColor=white" alt="Donate Now" height="42" />
+  </a>
+</p>
+
+- ☕ **درگاه پرداخت و حمایت مالی (دونیت)**: [https://pay.theminiceo.ir/link/783576](https://pay.theminiceo.ir/link/783576)
+
+گزارش باگ‌ها و ارسال پیشنهادات از طریق [GitHub Issues](https://github.com/amirHHP/mirzabenevis-recorder3/issues) بسیار استقبال می‌شود.
 
 ---
 

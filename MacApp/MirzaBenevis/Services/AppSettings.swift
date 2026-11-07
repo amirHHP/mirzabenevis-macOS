@@ -92,4 +92,7 @@ enum AppSettings {
             UserDefaults.standard.set(newValue, forKey: useGPUKey)
         }
     }
+
+    // MARK: - Donation & Support
+    static let donationURL = URL(string: "https://pay.theminiceo.ir/link/783576")!
 }
