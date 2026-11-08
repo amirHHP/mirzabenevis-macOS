@@ -36,7 +36,7 @@ chmod +x "$ROOT_DIR/scripts/build_standalone.sh"
 echo ""
 echo "=== 3/3 Installing to /Applications ==="
 APP_SOURCE="${ROOT_DIR}/build_output/MirzaBenevis.app"
-APP_TARGET="/Applications/Mirza Benevis.app"
+APP_TARGET="/Applications/MirzaBenevis.app"
 
 if [ ! -d "$APP_SOURCE" ]; then
     echo "❌ فایل خروجی بیلد در ${APP_SOURCE} یافت نشد!"
@@ -45,6 +45,10 @@ fi
 
 # Close app if already running
 pkill -x "MirzaBenevis" 2>/dev/null || true
+sleep 1
+
+# Clean up any legacy named app
+rm -rf "/Applications/Mirza Benevis.app" 2>/dev/null || true
 
 # Copy to /Applications (with graceful fallback to sudo or ~/Applications if permission is restricted)
 if rm -rf "$APP_TARGET" 2>/dev/null && cp -R "$APP_SOURCE" "$APP_TARGET" 2>/dev/null; then
@@ -54,7 +58,7 @@ elif command -v sudo &>/dev/null && sudo rm -rf "$APP_TARGET" 2>/dev/null && sud
 else
     USER_APPS="${HOME}/Applications"
     mkdir -p "$USER_APPS"
-    APP_TARGET="${USER_APPS}/Mirza Benevis.app"
+    APP_TARGET="${USER_APPS}/MirzaBenevis.app"
     rm -rf "$APP_TARGET"
     cp -R "$APP_SOURCE" "$APP_TARGET"
     echo "  ✅ با موفقیت در پوشه کاربری ${APP_TARGET} کپی شد."
