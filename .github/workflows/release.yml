@@ -47,7 +47,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build_output/MirzaBenevis-*.dmg
-            build_output/MirzaBenevis-*.zip
+            build_output/MirzaBenevis-v*.dmg
+            build_output/MirzaBenevis-v*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
