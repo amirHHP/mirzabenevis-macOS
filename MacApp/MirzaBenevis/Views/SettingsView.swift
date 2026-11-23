@@ -50,6 +50,8 @@ struct SettingsView: View {
     @State private var selectedModel = AppSettings.whisperModelSize
     @State private var useGPU = AppSettings.useGPU
     @State private var userName = AppSettings.userName
+    @State private var customVocabulary = AppSettings.customVocabulary
+    @State private var hourlyMeetingReminder = AppSettings.hourlyMeetingReminder
 
     var body: some View {
         VStack(spacing: 0) {
@@ -435,6 +437,29 @@ struct SettingsView: View {
                 }
             }
 
+            // Custom Vocabulary Card
+            settingsCard(
+                title: L10n.tr(.customVocabulary),
+                icon: "character.book.closed.fill",
+                iconColor: .teal
+            ) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(L10n.tr(.customVocabularyDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+
+                    TextField(
+                        L10n.tr(.customVocabularyPlaceholder),
+                        text: $customVocabulary
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .onChange(of: customVocabulary) { _, newValue in
+                        AppSettings.customVocabulary = newValue
+                    }
+                }
+            }
+
             // Metal GPU Acceleration Card
             settingsCard(
                 title: L10n.tr(.metalToggle),
@@ -675,6 +700,28 @@ struct SettingsView: View {
                         }
 
                     Text(L10n.tr(.userNameDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(2)
+                }
+            }
+
+            // Hourly Meeting Check Card
+            settingsCard(
+                title: L10n.tr(.hourlyCheckSettingTitle),
+                icon: "clock.badge.checkmark.fill",
+                iconColor: .orange
+            ) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Toggle(isOn: $hourlyMeetingReminder) {
+                        Text(L10n.tr(.hourlyCheckSettingTitle))
+                            .font(.body)
+                    }
+                    .onChange(of: hourlyMeetingReminder) { _, v in
+                        AppSettings.hourlyMeetingReminder = v
+                    }
+
+                    Text(L10n.tr(.hourlyCheckSettingDesc))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineSpacing(2)

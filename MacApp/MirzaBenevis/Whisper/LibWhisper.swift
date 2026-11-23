@@ -99,6 +99,9 @@ actor WhisperContext {
         params.no_context = true
         params.single_segment = false
         params.max_len = 0
+        params.suppress_blank = true
+        params.suppress_nst = true
+        params.carry_initial_prompt = true
 
         whisper_reset_timings(context)
 
@@ -115,11 +118,21 @@ actor WhisperContext {
 
         var words: [WhisperWordResult] = []
         var fullText = ""
+        var lastNormalizedSegment = ""
         let eot = whisper_token_eot(context)
 
         let segmentCount = whisper_full_n_segments(context)
         for segmentIndex in 0..<segmentCount {
-            fullText += String(cString: whisper_full_get_segment_text(context, segmentIndex))
+            let segRaw = String(cString: whisper_full_get_segment_text(context, segmentIndex))
+            let trimmedSeg = segRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedSeg.isEmpty else { continue }
+
+            let normalizedSeg = trimmedSeg.lowercased()
+            if normalizedSeg == lastNormalizedSegment {
+                continue
+            }
+            lastNormalizedSegment = normalizedSeg
+            fullText += (fullText.isEmpty ? "" : " ") + trimmedSeg
 
             let tokenCount = whisper_full_n_tokens(context, segmentIndex)
             for tokenIndex in 0..<tokenCount {

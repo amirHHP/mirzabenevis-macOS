@@ -9,6 +9,27 @@ enum AppSettings {
     private static let appLanguageKey = "mirza.appLanguage"
     private static let userNameKey = "mirza.userName"
     private static let geminiModelKey = "mirza.geminiModel"
+    private static let customVocabularyKey = "mirza.customVocabulary"
+    private static let hourlyMeetingReminderKey = "mirza.hourlyMeetingReminder"
+
+    static var hourlyMeetingReminder: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: hourlyMeetingReminderKey) == nil { return true }
+            return UserDefaults.standard.bool(forKey: hourlyMeetingReminderKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: hourlyMeetingReminderKey)
+        }
+    }
+
+    static var customVocabulary: String {
+        get {
+            UserDefaults.standard.string(forKey: customVocabularyKey) ?? ""
+        }
+        set {
+            UserDefaults.standard.set(newValue.trimmingCharacters(in: .whitespacesAndNewlines), forKey: customVocabularyKey)
+        }
+    }
 
     static var geminiModel: String {
         get {

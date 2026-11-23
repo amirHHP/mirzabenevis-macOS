@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     static let reopenNotification = Notification.Name("MirzaBenevisReopenApp")
 

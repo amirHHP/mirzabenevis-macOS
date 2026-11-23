@@ -26,15 +26,17 @@ final class TranscriptStore: ObservableObject {
         sessionsDirectory.appendingPathComponent("\(id.uuidString).json")
     }
 
-    func startNewSession(language: String? = nil, title: String? = nil, calendarEventTitle: String? = nil) {
+    func startNewSession(language: String? = nil, title: String? = nil, calendarEventTitle: String? = nil, audioFilePath: String? = nil) {
         let defaultTitle = title ?? calendarEventTitle ?? "جلسه جدید"
-        let session = TranscriptionSession(
+        var session = TranscriptionSession(
             title: defaultTitle,
             language: language,
             calendarEventTitle: calendarEventTitle
         )
+        session.audioFilePath = audioFilePath
         currentSession = session
         isRecording = true
+        saveSessionFile(session)
     }
 
     func appendSegment(_ segment: TranscriptSegment, targetSessionID: UUID? = nil) {
@@ -44,7 +46,7 @@ final class TranscriptStore: ObservableObject {
                 sessions[index].segments.append(segment)
                 sessions[index].words.append(contentsOf: segment.words)
                 sessions[index].updatedAt = Date()
-                saveSessions()
+                saveSessionFile(sessions[index])
             }
             return
         }
@@ -54,6 +56,9 @@ final class TranscriptStore: ObservableObject {
         session.words.append(contentsOf: segment.words)
         session.updatedAt = Date()
         currentSession = session
+
+        // Auto-save active session to disk so unexpected crashes or shutdowns never lose transcript data
+        saveSessionFile(session)
 
         // If recording has already stopped, ensure changes persist to the session list
         if !isRecording {

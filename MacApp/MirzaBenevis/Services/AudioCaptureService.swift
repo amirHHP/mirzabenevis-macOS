@@ -16,7 +16,7 @@ final class AudioCaptureService: ObservableObject {
         configChangeObserver = NotificationCenter.default.addObserver(
             forName: .AVAudioEngineConfigurationChange,
             object: engine,
-            queue: .main
+            queue: nil
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.handleConfigurationChange()

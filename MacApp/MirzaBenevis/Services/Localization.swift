@@ -233,6 +233,16 @@ public enum L10n {
         case cancelDownload
         case downloadFailed
         case modelDownloaded
+        case customVocabulary
+        case customVocabularyDesc
+        case customVocabularyPlaceholder
+        case hourlyCheckTitle
+        case hourlyCheckMessage(Int)
+        case hourlyCheckContinue
+        case hourlyCheckStop
+        case hourlyCheckAutoStopNotice(Int)
+        case hourlyCheckSettingTitle
+        case hourlyCheckSettingDesc
         case metalToggle
         case metalDescription
         case coreMLTitle
@@ -427,6 +437,16 @@ public enum L10n {
                 case .cancelDownload: return "Cancel Download"
                 case .downloadFailed: return "Download Error"
                 case .modelDownloaded: return "Downloaded & Ready"
+                case .customVocabulary: return "Custom Vocabulary & Technical Terms"
+                case .customVocabularyDesc: return "Add comma-separated words, abbreviations, or jargon to prioritize during transcription (e.g. permission, certificate, API, gRPC)."
+                case .customVocabularyPlaceholder: return "e.g. permission, certificate, API, gRPC, Docker"
+                case .hourlyCheckTitle: return "Still in the meeting?"
+                case .hourlyCheckMessage(let hours): return "Your meeting has been recording for \(hours) hour\(hours > 1 ? "s" : ""). Are you still in the meeting?"
+                case .hourlyCheckContinue: return "Yes, Continue Recording"
+                case .hourlyCheckStop: return "Stop & Save Meeting"
+                case .hourlyCheckAutoStopNotice(let seconds): return "Recording will automatically stop and save in \(seconds)s if not confirmed."
+                case .hourlyCheckSettingTitle: return "Hourly Meeting Check"
+                case .hourlyCheckSettingDesc: return "Prompts for confirmation every hour during long recordings to prevent accidental all-day recording."
                 case .metalToggle: return "Metal GPU Acceleration (Apple Silicon)"
                 case .metalDescription: return "Runs directly on your Mac GPU via Metal for instant transcription with zero internet dependency and minimal battery consumption."
                 case .coreMLTitle: return "Apple Neural Engine / Core ML (Optional)"
@@ -620,6 +640,16 @@ public enum L10n {
                 case .cancelDownload: return "لغو دانلود"
                 case .downloadFailed: return "خطا در دانلود"
                 case .modelDownloaded: return "دانلود شده و آماده"
+                case .customVocabulary: return "واژگان تخصصی و اصطلاحات جلسه"
+                case .customVocabularyDesc: return "کلمات کلیدی، نام پروژه‌ها و اصطلاحات فنی را با کاما جدا کنید تا دقیق و بدون خطا پیاده‌سازی شوند (مانند: permission, certificate, API, gRPC)."
+                case .customVocabularyPlaceholder: return "مثال: permission, certificate, API, gRPC, Docker"
+                case .hourlyCheckTitle: return "همچنان در جلسه هستید؟"
+                case .hourlyCheckMessage(let hours): return "جلسه شما \(hours) ساعت است که در حال ضبط است. آیا همچنان در جلسه حضور دارید؟"
+                case .hourlyCheckContinue: return "بله، ادامه بده"
+                case .hourlyCheckStop: return "توقف و ذخیره جلسه"
+                case .hourlyCheckAutoStopNotice(let seconds): return "در صورت عدم تایید، ضبط تا \(seconds) ثانیه دیگر به‌طور خودکار ذخیره و متوقف می‌شود."
+                case .hourlyCheckSettingTitle: return "تایید ساعتی ادامه‌ی جلسه"
+                case .hourlyCheckSettingDesc: return "هر یک ساعت یک پیام تایید نمایش می‌دهد تا از باز ماندن و ضبط ناخواسته و طولانی جلسه جلوگیری شود."
                 case .metalToggle: return "شتاب‌دهنده سخت‌افزاری Metal (اپل سیلیکون)"
                 case .metalDescription: return "مدل با شتاب‌دهنده گرافیکی Metal مستقیماً روی پردازنده مک اجرا می‌شود — سریع، بدون نیاز به اینترنت و با کمترین مصرف باتری."
                 case .coreMLTitle: return "موتور عصبی اپل / Core ML (اختیاری)"

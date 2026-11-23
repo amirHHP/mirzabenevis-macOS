@@ -1,12 +1,13 @@
 import SwiftUI
 
+@MainActor
 struct MenuBarPopoverView: View {
     @ObservedObject var coordinator: RecordingCoordinator
     @EnvironmentObject var transcriptStore: TranscriptStore
     @EnvironmentObject var modelManager: ModelManager
     @EnvironmentObject var updateManager: UpdateManager
     @ObservedObject private var langManager = LanguageManager.shared
-    @StateObject private var calendarService = CalendarService.shared
+    @ObservedObject private var calendarService = CalendarService.shared
     @Environment(\.openWindow) private var openWindow
 
     @State private var copyToast = false
@@ -23,6 +24,9 @@ struct MenuBarPopoverView: View {
             if coordinator.permissionError != nil {
                 permissionNotice
             }
+            if coordinator.isHourlyConfirmationActive {
+                hourlyCheckNotice
+            }
             recordingCard
             liveTranscriptCard
             footer
@@ -31,10 +35,12 @@ struct MenuBarPopoverView: View {
         .frame(width: 380)
         .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.layoutDirection, langManager.layoutDirection)
-        .task {
-            await coordinator.prepareModel()
-            calendarService.refreshEvents()
-            await updateManager.checkForUpdates(isUserInitiated: false)
+        .onAppear {
+            Task {
+                await coordinator.prepareModel()
+                calendarService.refreshEvents()
+                await updateManager.checkForUpdates(isUserInitiated: false)
+            }
         }
         .onReceive(NotificationCenter.default.publisher(for: AppDelegate.reopenNotification)) { _ in
             openWindow(id: "sessions")
@@ -192,6 +198,73 @@ struct MenuBarPopoverView: View {
     }
 
     // MARK: - Permission Notice Banner
+
+    // MARK: - Hourly Meeting Confirmation Notice
+
+    private var hourlyCheckNotice: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "clock.badge.questionmark.fill")
+                    .font(.system(size: 16))
+                    .foregroundStyle(.orange)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L10n.tr(.hourlyCheckTitle))
+                        .font(.subheadline.bold())
+                    Text(L10n.tr(.hourlyCheckMessage(coordinator.hourlyConfirmationHours)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Text("\(coordinator.autoStopCountdownSeconds / 60):\(String(format: "%02d", coordinator.autoStopCountdownSeconds % 60))")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.15))
+                    .foregroundStyle(.orange)
+                    .clipShape(Capsule())
+            }
+
+            Text(L10n.tr(.hourlyCheckAutoStopNotice(coordinator.autoStopCountdownSeconds)))
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 8) {
+                Button {
+                    coordinator.confirmContinueRecording()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark")
+                        Text(L10n.tr(.hourlyCheckContinue))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+
+                Button(role: .destructive) {
+                    coordinator.confirmStopRecording()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "stop.fill")
+                        Text(L10n.tr(.hourlyCheckStop))
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+            }
+        }
+        .padding(10)
+        .background(Color.orange.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.orange.opacity(0.3), lineWidth: 1)
+        )
+    }
 
     @ViewBuilder
     private var permissionNotice: some View {
